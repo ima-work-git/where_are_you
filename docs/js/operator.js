@@ -33,6 +33,18 @@ document.addEventListener('DOMContentLoaded', () => {
   btnTestMode.addEventListener('click', toggleTestMode);
   btnTestClose.addEventListener('click', () => toggleTestMode(false));
 
+  // 試験モードで直接開始
+  document.getElementById('btn-start-test').addEventListener('click', () => {
+    sessionSetup.classList.add('hidden');
+    mainContent.classList.remove('hidden');
+    setTimeout(() => {
+      MapModule.init('map');
+      MapModule.invalidateSize();
+      toggleTestMode();
+      appendSystemMessage('[試験モード] P2P接続なしで動作中。地図をクリックして位置を設定してください。');
+    }, 100);
+  });
+
   testAccuracySlider.addEventListener('input', () => {
     testAccuracyVal.textContent = testAccuracySlider.value;
   });
@@ -170,7 +182,22 @@ document.addEventListener('DOMContentLoaded', () => {
   function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
-    Connection.sendChat(text);
+
+    if (Connection.getIsConnected()) {
+      // P2P接続あり → 相手にも送信（sendChat内でonChatコールバックも呼ばれる）
+      Connection.sendChat(text);
+    } else {
+      // 試験モード or 未接続 → ローカルのみ表示＆POI解析
+      const msg = {
+        type: 'chat',
+        role: 'operator',
+        sender: '指令台',
+        text,
+        timestamp: Date.now(),
+      };
+      appendChatMessage(msg);
+    }
+
     chatInput.value = '';
     chatInput.focus();
   }
