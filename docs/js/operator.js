@@ -12,9 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const callerStatusEl = document.getElementById('caller-status');
   const chatInput = document.getElementById('chat-input');
   const btnSend = document.getElementById('btn-send');
-  const locationInfo = document.getElementById('location-info');
   const chatMessages = document.getElementById('chat-messages');
   const btnClearPoi = document.getElementById('btn-clear-poi');
+  const rankingPanel = document.getElementById('ranking-panel');
+  const rankingList = document.getElementById('ranking-list');
 
   let callerLocation = null;
 
@@ -122,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // POIマーカークリア
   btnClearPoi.addEventListener('click', () => {
     MapModule.clearPOIResults();
+    clearRankingPanel();
     appendSystemMessage('POIマーカーをクリアしました');
   });
 
@@ -162,13 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleLocationUpdate(loc) {
     callerLocation = loc;
     MapModule.updateCallerLocation(loc.lat, loc.lng, loc.accuracy);
-
-    locationInfo.classList.remove('hidden');
-    document.getElementById('info-lat').textContent = loc.lat.toFixed(6);
-    document.getElementById('info-lng').textContent = loc.lng.toFixed(6);
-    document.getElementById('info-accuracy').textContent = `±${Math.round(loc.accuracy)}m`;
-    document.getElementById('info-time').textContent =
-      new Date(loc.timestamp).toLocaleTimeString('ja-JP');
   }
 
   function handleConnectionChange(connected) {
@@ -248,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // スコアランキング表示
+    // スコアランキング表示（チャット＋地図パネル）
     const filtered = result.totalCount > result.results.length
       ? ` (全${result.totalCount}件中 上位${result.results.length}件)`
       : '';
@@ -259,6 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
         `  #${i + 1}  ${p.totalScore}点 [距離${p.distanceScore}×40%+テキスト${p.textScore}×60%]  ${p.name}  (${p.distance}m)`
       );
     }
+
+    updateRankingPanel(result.results);
   }
 
   function appendSystemMessage(text) {
@@ -267,6 +264,41 @@ document.addEventListener('DOMContentLoaded', () => {
     div.textContent = text;
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // ========== 候補地点ランキングパネル ==========
+  const RANK_COLORS = ['#e67e22', '#95a5a6', '#cd7f32', '#2980b9', '#2c3e50'];
+
+  function updateRankingPanel(results) {
+    rankingList.innerHTML = '';
+    if (!results || results.length === 0) {
+      rankingPanel.classList.add('hidden');
+      return;
+    }
+
+    for (let i = 0; i < results.length; i++) {
+      const p = results[i];
+      const rank = i + 1;
+      const color = RANK_COLORS[i] || RANK_COLORS[RANK_COLORS.length - 1];
+      const li = document.createElement('li');
+      li.className = 'ranking-item';
+      li.innerHTML =
+        `<span class="ranking-badge" style="background:${color}">${rank}</span>` +
+        `<span class="ranking-name">${escapeHtml(p.name)}</span>` +
+        `<span class="ranking-score">${p.totalScore}点</span>` +
+        `<span class="ranking-dist">${p.distance}m</span>`;
+      li.addEventListener('click', () => {
+        MapModule.getMap().setView([p.lat, p.lng], 17);
+      });
+      rankingList.appendChild(li);
+    }
+
+    rankingPanel.classList.remove('hidden');
+  }
+
+  function clearRankingPanel() {
+    rankingList.innerHTML = '';
+    rankingPanel.classList.add('hidden');
   }
 
   function escapeHtml(str) {
