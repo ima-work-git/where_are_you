@@ -272,6 +272,8 @@ header h1 {
   border-left: 1px solid #ddd;
   background: #fff;
   flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -293,6 +295,7 @@ header h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
 }
 
 /* ========== Chat Message Styles ========== */
@@ -375,7 +378,7 @@ header h1 {
 }
 
 .caller-content .map-container {
-  height: 45%;
+  height: 40%;
   flex: none;
 }
 
@@ -384,6 +387,7 @@ header h1 {
   flex: 1;
   border-left: none;
   border-top: 1px solid #ddd;
+  min-height: 0;
 }
 
 /* ========== POI Marker ========== */
@@ -454,7 +458,7 @@ header h1 {
   }
 
   .map-container {
-    height: 45%;
+    height: 40%;
     flex: none;
   }
 
@@ -463,6 +467,7 @@ header h1 {
     flex: 1;
     border-left: none;
     border-top: 1px solid #ddd;
+    min-height: 0;
   }
 
   header h1 {
