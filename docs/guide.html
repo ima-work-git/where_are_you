@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使い方 - 消防指令台 位置特定システム</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f5f5f5; }
+    .guide-wrapper {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+    }
+    .guide-wrapper h1 {
+      font-size: 22px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .guide-wrapper .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .guide-section {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .guide-section h2 {
+      font-size: 17px;
+      color: #1a1a2e;
+      border-left: 4px solid #2980b9;
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+    .guide-section h2.test-title {
+      border-left-color: #8e44ad;
+    }
+    .guide-section p, .guide-section li {
+      font-size: 14px;
+      line-height: 1.8;
+      color: #444;
+    }
+    .guide-section ul, .guide-section ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .guide-section li {
+      margin-bottom: 6px;
+    }
+    .step-list {
+      counter-reset: step;
+      list-style: none;
+      padding-left: 0;
+    }
+    .step-list li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 44px;
+      margin-bottom: 16px;
+      min-height: 32px;
+    }
+    .step-list li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #2980b9;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-list.test-steps li::before {
+      background: #8e44ad;
+    }
+    .example-box {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    .example-box .label {
+      font-weight: 700;
+      color: #555;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    .example-box code {
+      background: #e8e8e8;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+    }
+    .arrow { color: #2980b9; font-weight: 700; }
+    .tag-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .tag-table th {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .tag-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .tag-table tr:nth-child(even) td {
+      background: #f9f9f9;
+    }
+    .highlight-box {
+      background: #f0e6f6;
+      border: 2px solid #8e44ad;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 12px 0;
+    }
+    .highlight-box p { margin: 0; }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #2980b9;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="guide-wrapper">
+    <a href="index.html" class="back-link">&larr; トップに戻る</a>
+
+    <h1>消防指令台 位置特定システム - 使い方</h1>
+    <p class="subtitle">通報者のスマホGPSとチャットから施設を自動特定するシステム</p>
+
+    <!-- ========== 概要 ========== -->
+    <div class="guide-section">
+      <h2>システム概要</h2>
+      <p>通報者のスマホから GPS 位置情報を取得し、チャットの発言内容から周辺施設を自動検索・地図表示するシステムです。</p>
+      <ul>
+        <li><b>指令台（PC）</b> — 地図表示・チャット・施設検索を操作</li>
+        <li><b>通報者（スマホ）</b> — GPS送信・チャット応答</li>
+        <li>接続は P2P（PeerJS/WebRTC）、サーバー不要</li>
+      </ul>
+    </div>
+
+    <!-- ========== 通常モード ========== -->
+    <div class="guide-section">
+      <h2>通常モード（実際の通報対応）</h2>
+      <ol class="step-list">
+        <li><b>「新規セッション作成」</b>を押す</li>
+        <li><b>「通報者リンクをコピー」</b>を押して、通報者のスマホにリンクを送る（SMS・LINE等）</li>
+        <li>通報者がリンクを開くと<b>自動でGPS位置が地図に表示</b>される（赤い誤差円）</li>
+        <li>チャットで会話しながら施設を特定。発言内容は<b>自動でOSM検索</b>される</li>
+      </ol>
+    </div>
+
+    <!-- ========== 試験モード（メイン） ========== -->
+    <div class="guide-section">
+      <h2 class="test-title">試験モード（P2P接続なしで動作確認）</h2>
+
+      <div class="highlight-box">
+        <p><b>通報者のスマホなしで、指令台単体でシステムの動作確認ができます。</b><br>
+        任意の位置と誤差半径を手動で設定し、チャットにキーワードを入力してPOI検索をテストできます。</p>
+      </div>
+
+      <ol class="step-list test-steps">
+        <li>トップ画面で<b>「試験モードで開始」</b>を押す</li>
+        <li>地図上に紫のパネルが表示される。<b>地図をクリック</b>して通報者の仮想位置を設定</li>
+        <li><b>スライダー</b>で誤差半径を調整（5m〜500m）。検索範囲は「誤差 x 5」</li>
+        <li>チャット欄にキーワードを入力して Enter。<b>自動でOSM検索が実行</b>される</li>
+      </ol>
+
+      <div class="example-box">
+        <span class="label">試験例</span>
+        位置: 向河原駅付近をクリック / 誤差: 50m（検索範囲250m）<br>
+        チャット入力: <code>セブンと居酒屋が見えます</code><br>
+        <span class="arrow">&rarr;</span> 250m圏内のセブンイレブンと居酒屋がマーカー表示。両方が近接する地点がハイライトされる
+      </div>
+
+      <p>試験モード中も、セッションバーの「試験モード」ボタンでパネルの表示/非表示を切り替えられます。
+         位置を変えたい場合は再度地図をクリックするだけです。</p>
+    </div>
+
+    <!-- ========== チャット検索 ========== -->
+    <div class="guide-section">
+      <h2>チャット自動検索の仕組み</h2>
+      <p>チャットに入力されたテキストを解析し、3つの方法で施設を検索します：</p>
+
+      <h3 style="font-size:14px; margin:16px 0 8px; color:#333">1. 辞書マッチ（高精度）</h3>
+      <p>「セブン」「マック」「交番」「公園」など約100個の登録キーワードに対して、最適なOSMタグで検索します。</p>
+      <div class="example-box">
+        <code>セブンが見えます</code> <span class="arrow">&rarr;</span> <code>shop=convenience + name~セブン</code> で検索
+      </div>
+
+      <h3 style="font-size:14px; margin:16px 0 8px; color:#333">2. 固有名詞検索（形態素解析）</h3>
+      <p>辞書にないキーワードは TinySegmenter（形態素解析）で自動抽出し、OSMの<b>全タグを横断検索</b>します。
+         ひらがな・カタカナ・漢字・英数すべてに対応。</p>
+      <div class="example-box">
+        <code>めんぱちが見えます</code> <span class="arrow">&rarr;</span> 「めんぱち」を抽出 <span class="arrow">&rarr;</span> 全タグから検索
+      </div>
+
+      <h3 style="font-size:14px; margin:16px 0 8px; color:#333">3. 複数キーワード絞り込み</h3>
+      <p>複数施設が発言に含まれると、全カテゴリが近接する地点を自動でハイライトします。</p>
+      <div class="example-box">
+        <code>薬局とパン屋がある</code> <span class="arrow">&rarr;</span> 薬局とパン屋の両方が近くにある地点を緑色の円でハイライト
+      </div>
+    </div>
+
+    <!-- ========== 辞書キーワード一覧 ========== -->
+    <div class="guide-section">
+      <h2>登録済みキーワード一覧（抜粋）</h2>
+      <table class="tag-table">
+        <tr><th>カテゴリ</th><th>キーワード例</th></tr>
+        <tr><td>コンビニ</td><td>セブン, ローソン, ファミマ, コンビニ</td></tr>
+        <tr><td>ファストフード</td><td>マック, すき家, 吉野家, 松屋, ケンタ, モス</td></tr>
+        <tr><td>カフェ</td><td>スタバ, ドトール, コメダ, タリーズ, カフェ, 喫茶店</td></tr>
+        <tr><td>レストラン</td><td>ガスト, サイゼ, ジョナサン, デニーズ, ファミレス</td></tr>
+        <tr><td>居酒屋</td><td>居酒屋, バー, 鳥貴族, 和民, 魚民, 飲み屋</td></tr>
+        <tr><td>ラーメン等</td><td>ラーメン, 中華, 日高屋, 寿司, そば, うどん, 丸亀</td></tr>
+        <tr><td>スーパー</td><td>スーパー, イオン, ライフ, マルエツ, 東急ストア</td></tr>
+        <tr><td>ドラッグストア</td><td>ドラッグストア, 薬局, マツキヨ, ウエルシア, ツルハ</td></tr>
+        <tr><td>公共施設</td><td>交番, 消防署, 郵便局, 役所, 図書館</td></tr>
+        <tr><td>医療</td><td>病院, クリニック, 歯科</td></tr>
+        <tr><td>教育</td><td>小学校, 中学校, 高校, 大学, 幼稚園, 保育園</td></tr>
+        <tr><td>交通</td><td>駅, バス停, 信号, 踏切, ガソリンスタンド, 駐車場</td></tr>
+        <tr><td>商業</td><td>銀行, ATM, ホテル, クリーニング, 美容院, 100均</td></tr>
+        <tr><td>目印</td><td>公園, 神社, 寺, 教会, 橋, 川, 鳥居</td></tr>
+      </table>
+      <p style="font-size:12px; color:#888; margin-top:8px">
+        上記以外のキーワード（店名・ビル名・施設名等）は形態素解析で自動抽出されOSM全タグ検索されます。
+      </p>
+    </div>
+
+    <!-- ========== POIマーカー ========== -->
+    <div class="guide-section">
+      <h2>マーカーの見方</h2>
+      <ul>
+        <li><b>赤い円（実線）</b> — GPS誤差円（通報者の位置精度）</li>
+        <li><b>黄色い円（破線）</b> — POI検索範囲（誤差 x 5）</li>
+        <li><b>色付きマーカー</b> — 検索でヒットした施設（カテゴリごとに色分け）</li>
+        <li><b>グレーのマーカー</b> — 複数キーワード検索時、交差に含まれない施設</li>
+        <li><b>緑の円（破線）</b> — 複数キーワードが近接する地点のハイライト</li>
+      </ul>
+      <p>マーカーをクリックすると施設名と<b>OSMタグ情報</b>（amenity, shop, cuisine, 住所等）が表示されます。</p>
+    </div>
+
+    <!-- ========== 注意事項 ========== -->
+    <div class="guide-section">
+      <h2>注意事項</h2>
+      <ul>
+        <li>施設データは <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> のボランティアデータに基づきます。登録されていない施設はヒットしません。</li>
+        <li>都市部は高密度にデータが揃っていますが、地方・山間部は少ない場合があります。</li>
+        <li>P2P接続はPeerJSの公開サーバーを利用しています。ネットワーク環境により接続が不安定な場合があります。</li>
+        <li>GPSの精度はスマホの機種・環境（屋内/屋外、天候）に依存します。</li>
+      </ul>
+    </div>
+
+    <a href="index.html" class="back-link">&larr; トップに戻る</a>
+  </div>
+</body>
+</html>
