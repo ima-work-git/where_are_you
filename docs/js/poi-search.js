@@ -3,27 +3,15 @@
  * チャットの自然言語からキーワードを抽出し、Overpass APIでOSM施設を検索
  * LLM/BERT不使用 - 辞書ベースのキーワードマッチング
  *
- * 検索の流れ:
- * 1. チャットメッセージからフィラー(えーと等)を除去
- * 2. キーワード辞書と正規表現マッチング
- * 3. ヒットしたキーワードのOSMタグでOverpass APIに問い合わせ
- * 4. GPS誤差円×5 の範囲内の該当施設を返却
+ * モード:
+ *  単一キーワード → 誤差円×5 内の該当施設を全てマーク
+ *  複数キーワード → 各カテゴリを検索 → 全カテゴリが近接する地点を絞り込み
  */
 const POISearch = (() => {
 
   const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 
   // ========== キーワード辞書 ==========
-  // pattern: 口語・略称の正規表現
-  // tags:    Overpass QL フィルタ（OSM公式タグ準拠）
-  // label:   表示名
-  //
-  // OSMタグ参照:
-  //   コンビニ → shop=convenience (※amenity=convenienceは存在しない)
-  //   ファストフード → amenity=fast_food
-  //   レストラン → amenity=restaurant
-  //
-  // 向河原駅500m圏内で動作確認済みの辞書
   const KEYWORDS = [
     // --- コンビニ (shop=convenience) ---
     { pattern: /セブン(?:イレブン)?/i, tags: '[shop=convenience]["name"~"セブン"]', label: 'セブンイレブン' },
@@ -49,6 +37,9 @@ const POISearch = (() => {
     { pattern: /サイゼ(?:リヤ)?/i, tags: '[amenity=restaurant]["name"~"サイゼリヤ"]', label: 'サイゼリヤ' },
     { pattern: /ジョナサン/i, tags: '[amenity=restaurant]["name"~"ジョナサン"]', label: 'ジョナサン' },
 
+    // --- パン屋 (shop=bakery) ---
+    { pattern: /パン屋|パンや|ベーカリー|bakery/i, tags: '[shop=bakery]', label: 'パン屋' },
+
     // --- スーパー (shop=supermarket) ---
     { pattern: /スーパー(?:マーケット)?/i, tags: '[shop=supermarket]', label: 'スーパー' },
     { pattern: /イオン/i, tags: '[shop~"supermarket|mall"]["name"~"イオン"]', label: 'イオン' },
@@ -62,6 +53,7 @@ const POISearch = (() => {
     { pattern: /マツキヨ|マツモトキヨシ/i, tags: '["name"~"マツモトキヨシ"]', label: 'マツモトキヨシ' },
     { pattern: /ウエルシア/i, tags: '["name"~"ウエルシア"]', label: 'ウエルシア' },
     { pattern: /ツルハ/i, tags: '["name"~"ツルハ"]', label: 'ツルハ' },
+    { pattern: /スギ薬局|スギ(?=薬)/i, tags: '["name"~"スギ薬局"]', label: 'スギ薬局' },
 
     // --- 公共施設 ---
     { pattern: /交番|こうばん/i, tags: '[amenity=police]', label: '交番' },
@@ -74,6 +66,7 @@ const POISearch = (() => {
     // --- 医療 ---
     { pattern: /病院|びょういん/i, tags: '[amenity~"hospital|clinic"]', label: '病院' },
     { pattern: /クリニック/i, tags: '[amenity=clinic]', label: 'クリニック' },
+    { pattern: /歯医者|歯科|しか/i, tags: '[amenity~"dentist|clinic"]["name"~"歯科|デンタル"]', label: '歯科' },
 
     // --- 教育 ---
     { pattern: /小学校/i, tags: '[amenity=school]["name"~"小学校"]', label: '小学校' },
@@ -107,19 +100,23 @@ const POISearch = (() => {
     { pattern: /ATM/i, tags: '[amenity=atm]', label: 'ATM' },
     { pattern: /ホテル/i, tags: '[tourism=hotel]', label: 'ホテル' },
     { pattern: /旅館|りょかん/i, tags: '[tourism=guest_house]', label: '旅館' },
+    { pattern: /クリーニング/i, tags: '[shop=dry_cleaning]', label: 'クリーニング' },
+    { pattern: /美容(?:院|室)|床屋|散髪|理容/i, tags: '[shop~"hairdresser|beauty"]', label: '美容院・理容室' },
+    { pattern: /花屋|はなや/i, tags: '[shop=florist]', label: '花屋' },
+    { pattern: /本屋|書店|ほんや/i, tags: '[shop=books]', label: '本屋' },
+    { pattern: /100均|百均|ダイソー|セリア/i, tags: '[shop=variety_store]', label: '100円ショップ' },
 
     // --- 目印 ---
     { pattern: /橋(?!本)/i, tags: '[bridge=yes][highway]', label: '橋' },
     { pattern: /川(?!崎|口|越|上|下)/i, tags: '[waterway~"river|stream"]', label: '川' },
     { pattern: /鳥居/i, tags: '[man_made=torii]', label: '鳥居' },
 
-    // --- 向河原駅周辺の固有名詞 ---
+    // --- 固有名詞 ---
     { pattern: /NEC|エヌイーシー|日本電気/i, tags: '["name"~"NEC|日本電気"]', label: 'NEC' },
   ];
 
   // ========== テキストからキーワード抽出 ==========
   function extractKeywords(text) {
-    // 口語フィラーを除去
     const cleaned = text
       .replace(/えーっと|あのー?|ええと|うーん|そのー?|なんか|あー+|えー+|うー+|っと/g, '')
       .replace(/[、。！？!?,.\s]+/g, ' ')
@@ -135,11 +132,6 @@ const POISearch = (() => {
   }
 
   // ========== Overpass API クエリ ==========
-  // OSMデータベースに対して以下のクエリを実行:
-  // 1. 指定座標を中心に、指定半径(m)の円内を検索
-  // 2. node(点), way(線/面), relation(複合)の3種を検索
-  // 3. タグフィルタで施設を絞り込み
-  // 4. JSON形式で結果を取得
   async function searchNearby(lat, lng, radiusMeters, keyword) {
     const query = `
       [out:json][timeout:10];
@@ -170,6 +162,66 @@ const POISearch = (() => {
     })).filter(el => el.lat && el.lng);
   }
 
+  // ========== 2点間の距離(m) ==========
+  function distanceMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // ========== 複数カテゴリの交差絞り込み ==========
+  // 各カテゴリのPOI同士が proximityRadius 以内にあるペア/グループを抽出
+  function findIntersections(searchResults, proximityRadius) {
+    if (searchResults.length < 2) return null;
+
+    // カテゴリごとにPOIを分類
+    const categories = searchResults.map(r => ({
+      label: r.keyword.label,
+      pois: r.pois,
+    })).filter(c => c.pois.length > 0);
+
+    if (categories.length < 2) return null;
+
+    // 基準: 最もPOI数が少ないカテゴリの各POIに対して、
+    // 他の全カテゴリから proximityRadius 以内にPOIがあるか判定
+    categories.sort((a, b) => a.pois.length - b.pois.length);
+    const base = categories[0];
+    const others = categories.slice(1);
+
+    const clusters = [];
+
+    for (const basePoi of base.pois) {
+      // このbasePOIの近くに全カテゴリのPOIがあるか
+      const nearbyFromEach = [];
+      let allFound = true;
+
+      for (const other of others) {
+        const nearby = other.pois.filter(p =>
+          distanceMeters(basePoi.lat, basePoi.lng, p.lat, p.lng) <= proximityRadius
+        );
+        if (nearby.length === 0) {
+          allFound = false;
+          break;
+        }
+        nearbyFromEach.push(...nearby);
+      }
+
+      if (allFound) {
+        clusters.push({
+          anchor: basePoi,
+          nearby: nearbyFromEach,
+          all: [basePoi, ...nearbyFromEach],
+        });
+      }
+    }
+
+    return clusters.length > 0 ? clusters : null;
+  }
+
   // ========== メインの解析・検索関数 ==========
   async function analyzeMessage(text, callerLocation) {
     if (!callerLocation) return null;
@@ -177,9 +229,9 @@ const POISearch = (() => {
     const keywords = extractKeywords(text);
     if (keywords.length === 0) return null;
 
-    const radius = Math.max(callerLocation.accuracy * 5, 500); // 最低500m
-    const results = [];
+    const radius = callerLocation.accuracy * 5;
 
+    // 全キーワードを並列検索
     const searches = keywords.map(async (kw) => {
       try {
         const pois = await searchNearby(
@@ -197,19 +249,29 @@ const POISearch = (() => {
 
     const searchResults = await Promise.all(searches);
 
+    // 全結果をフラットに
+    const allResults = [];
     for (const r of searchResults) {
-      results.push(...r.pois.map(poi => ({
+      allResults.push(...r.pois.map(poi => ({
         ...poi,
         searchKeyword: r.keyword.label,
       })));
     }
 
+    // 複数カテゴリの交差判定
+    let intersections = null;
+    if (keywords.length >= 2) {
+      intersections = findIntersections(searchResults, radius);
+    }
+
     return {
       keywords: keywords.map(k => k.label),
       radius,
-      results,
+      results: allResults,
+      intersections,
+      isMultiKeyword: keywords.length >= 2,
     };
   }
 
-  return { extractKeywords, searchNearby, analyzeMessage };
+  return { extractKeywords, searchNearby, analyzeMessage, distanceMeters };
 })();

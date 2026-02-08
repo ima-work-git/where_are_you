@@ -94,21 +94,26 @@ const MapModule = (() => {
   }
 
   /**
-   * POI検索結果をマーカーで表示
+   * POI検索結果をマーカーで表示（カテゴリごとに色分け）
+   * @param {Array} results - POI結果の配列
+   * @param {Object} options - { dimmed: true でグレー表示(交差外) }
    */
-  function showPOIResults(results) {
-    const color = POI_COLORS[colorIndex % POI_COLORS.length];
-    colorIndex++;
+  function showPOIResults(results, options = {}) {
+    const dimmed = options.dimmed || false;
+    const color = dimmed ? '#aaa' : POI_COLORS[colorIndex % POI_COLORS.length];
+    if (!dimmed) colorIndex++;
 
     let count = 0;
     for (const poi of results) {
+      const pinClass = dimmed ? 'poi-pin dimmed' : 'poi-pin';
       const marker = L.marker([poi.lat, poi.lng], {
         icon: L.divIcon({
           className: 'poi-marker',
-          html: `<div class="poi-pin" style="background:${color}"></div>`,
+          html: `<div class="${pinClass}" style="background:${color}"></div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10],
         }),
+        zIndexOffset: dimmed ? -100 : 0,
       });
 
       marker.bindPopup(
@@ -116,17 +121,34 @@ const MapModule = (() => {
         `<span style="color:${color}">[${escapePopup(poi.type)}]</span>`
       );
 
-      marker.bindTooltip(poi.name, {
-        permanent: true,
-        direction: 'top',
-        offset: [0, -12],
-        className: 'poi-tooltip',
-      });
+      if (!dimmed) {
+        marker.bindTooltip(poi.name, {
+          permanent: true,
+          direction: 'top',
+          offset: [0, -12],
+          className: 'poi-tooltip',
+        });
+      }
 
       poiLayerGroup.addLayer(marker);
       count++;
     }
     return count;
+  }
+
+  /**
+   * 交差クラスターをハイライト円で表示
+   */
+  function showIntersectionCluster(lat, lng, radius) {
+    const circle = L.circle([lat, lng], {
+      radius: Math.min(radius, 300),
+      color: '#27ae60',
+      fillColor: '#27ae60',
+      fillOpacity: 0.15,
+      weight: 3,
+      dashArray: '8, 4',
+    }).addTo(poiLayerGroup);
+    return circle;
   }
 
   /**
@@ -158,5 +180,6 @@ const MapModule = (() => {
   return {
     init, updateCallerLocation, getMap, invalidateSize,
     showSearchRadius, showPOIResults, clearPOIResults,
+    showIntersectionCluster,
   };
 })();

@@ -405,6 +405,12 @@ header h1 {
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
+.poi-pin.dimmed {
+  opacity: 0.35;
+  width: 12px;
+  height: 12px;
+}
+
 .poi-tooltip {
   background: rgba(0,0,0,0.75);
   color: #fff;

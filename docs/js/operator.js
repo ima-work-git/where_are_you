@@ -135,8 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = await POISearch.analyzeMessage(text, callerLocation);
     if (!result) return;
 
+    const r = Math.round(result.radius);
     appendSystemMessage(
-      `[自動検索] "${result.keywords.join(', ')}" を半径${Math.round(result.radius)}m内で検索中...`
+      `[自動検索] "${result.keywords.join(', ')}" を半径${r}m (精度${Math.round(callerLocation.accuracy)}m×5) で検索中...`
     );
 
     MapModule.showSearchRadius(callerLocation.lat, callerLocation.lng, result.radius);
@@ -146,8 +147,47 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const count = MapModule.showPOIResults(result.results);
-    appendSystemMessage(`[自動検索] ${count}件の候補をマーカー表示しました`);
+    // 複数キーワード + 交差あり → 交差地点をハイライト、それ以外はdimmed
+    if (result.isMultiKeyword && result.intersections) {
+      // 交差に含まれるPOIのIDセット
+      const intersectIds = new Set();
+      for (const cluster of result.intersections) {
+        for (const poi of cluster.all) {
+          intersectIds.add(poi.id);
+        }
+      }
+
+      // 交差外のPOIをグレーで表示
+      const dimmedPois = result.results.filter(p => !intersectIds.has(p.id));
+      if (dimmedPois.length > 0) {
+        MapModule.showPOIResults(dimmedPois, { dimmed: true });
+      }
+
+      // 交差内のPOIをカラーで表示
+      const highlightPois = result.results.filter(p => intersectIds.has(p.id));
+      const count = MapModule.showPOIResults(highlightPois);
+
+      // 交差クラスターの中心にハイライト円
+      for (const cluster of result.intersections) {
+        const avgLat = cluster.all.reduce((s, p) => s + p.lat, 0) / cluster.all.length;
+        const avgLng = cluster.all.reduce((s, p) => s + p.lng, 0) / cluster.all.length;
+        MapModule.showIntersectionCluster(avgLat, avgLng, result.radius);
+      }
+
+      appendSystemMessage(
+        `[絞り込み] ${result.keywords.join(' & ')} が近接する地点: ${result.intersections.length}箇所 (${count}件ハイライト)`
+      );
+    } else if (result.isMultiKeyword && !result.intersections) {
+      // 複数キーワードだが交差なし → 全部表示
+      const count = MapModule.showPOIResults(result.results);
+      appendSystemMessage(
+        `[自動検索] ${count}件表示 (${result.keywords.join(' & ')} が近接する地点は見つかりませんでした)`
+      );
+    } else {
+      // 単一キーワード → 全部表示
+      const count = MapModule.showPOIResults(result.results);
+      appendSystemMessage(`[自動検索] ${count}件の候補をマーカー表示しました`);
+    }
   }
 
   function appendSystemMessage(text) {
