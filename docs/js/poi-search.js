@@ -33,9 +33,43 @@ const POISearch = (() => {
     // --- カフェ・レストラン ---
     { pattern: /スタバ|スターバックス/i, tags: '[amenity=cafe]["name"~"スターバックス|Starbucks"]', label: 'スターバックス' },
     { pattern: /ドトール/i, tags: '[amenity=cafe]["name"~"ドトール"]', label: 'ドトール' },
+    { pattern: /コメダ/i, tags: '[amenity=cafe]["name"~"コメダ"]', label: 'コメダ珈琲' },
+    { pattern: /タリーズ/i, tags: '[amenity=cafe]["name"~"タリーズ|Tully"]', label: 'タリーズ' },
+    { pattern: /カフェ|喫茶(?:店)?/i, tags: '[amenity=cafe]', label: 'カフェ' },
     { pattern: /ガスト/i, tags: '[amenity=restaurant]["name"~"ガスト"]', label: 'ガスト' },
     { pattern: /サイゼ(?:リヤ)?/i, tags: '[amenity=restaurant]["name"~"サイゼリヤ"]', label: 'サイゼリヤ' },
     { pattern: /ジョナサン/i, tags: '[amenity=restaurant]["name"~"ジョナサン"]', label: 'ジョナサン' },
+    { pattern: /デニーズ/i, tags: '[amenity=restaurant]["name"~"デニーズ|Denny"]', label: 'デニーズ' },
+    { pattern: /ファミレス|ファミリーレストラン/i, tags: '[amenity=restaurant][cuisine~"japanese|western|family"]', label: 'ファミレス' },
+    { pattern: /レストラン|飲食店/i, tags: '[amenity=restaurant]', label: 'レストラン' },
+
+    // --- 居酒屋・バー・飲み屋 ---
+    { pattern: /居酒屋|いざかや/i, tags: '[amenity~"bar|pub|nightclub"]', label: '居酒屋' },
+    { pattern: /バー|bar/i, tags: '[amenity~"bar|pub"]', label: 'バー' },
+    { pattern: /鳥貴族/i, tags: '["name"~"鳥貴族"]', label: '鳥貴族' },
+    { pattern: /和民|わたみ/i, tags: '["name"~"和民|わたみ"]', label: '和民' },
+    { pattern: /魚民/i, tags: '["name"~"魚民"]', label: '魚民' },
+    { pattern: /白木屋/i, tags: '["name"~"白木屋"]', label: '白木屋' },
+    { pattern: /笑笑/i, tags: '["name"~"笑笑"]', label: '笑笑' },
+    { pattern: /飲み屋|のみや/i, tags: '[amenity~"bar|pub|restaurant"]["name"~"居酒屋|酒場|酒処|のれん"]', label: '飲み屋' },
+
+    // --- ラーメン・中華 ---
+    { pattern: /ラーメン(?:屋)?|らーめん/i, tags: '[amenity~"restaurant|fast_food"]["name"~"ラーメン|らーめん|拉麺|らぁめん"]', label: 'ラーメン屋' },
+    { pattern: /中華(?:料理)?(?:屋)?/i, tags: '[amenity=restaurant][cuisine=chinese]', label: '中華料理' },
+    { pattern: /日高屋/i, tags: '["name"~"日高屋"]', label: '日高屋' },
+
+    // --- 寿司・和食 ---
+    { pattern: /寿司|すし|鮨/i, tags: '[amenity~"restaurant|fast_food"]["name"~"寿司|すし|鮨|スシ|寿し"]', label: '寿司屋' },
+    { pattern: /くら寿司/i, tags: '["name"~"くら寿司"]', label: 'くら寿司' },
+    { pattern: /スシロー/i, tags: '["name"~"スシロー"]', label: 'スシロー' },
+    { pattern: /はま寿司/i, tags: '["name"~"はま寿司"]', label: 'はま寿司' },
+    { pattern: /そば(?:屋)?|蕎麦/i, tags: '[amenity=restaurant]["name"~"そば|蕎麦|ソバ"]', label: 'そば屋' },
+    { pattern: /うどん(?:屋)?/i, tags: '[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"]', label: 'うどん屋' },
+    { pattern: /丸亀/i, tags: '["name"~"丸亀製麺"]', label: '丸亀製麺' },
+
+    // --- 焼肉・カレー ---
+    { pattern: /焼肉|やきにく/i, tags: '[amenity=restaurant]["name"~"焼肉|焼き肉|やきにく|カルビ"]', label: '焼肉屋' },
+    { pattern: /カレー(?:屋)?/i, tags: '[amenity~"restaurant|fast_food"][cuisine=curry]', label: 'カレー屋' },
 
     // --- パン屋 (shop=bakery) ---
     { pattern: /パン屋|パンや|ベーカリー|bakery/i, tags: '[shop=bakery]', label: 'パン屋' },
