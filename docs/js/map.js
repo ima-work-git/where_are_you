@@ -18,6 +18,9 @@ const MapModule = (() => {
   ];
   let colorIndex = 0;
 
+  // ランキング用カラー (#1=金, #2=銀, #3=銅, #4-5=青)
+  const RANK_COLORS = ['#e67e22', '#95a5a6', '#cd7f32', '#2980b9', '#2c3e50'];
+
   function init(elementId) {
     map = L.map(elementId).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
@@ -94,38 +97,36 @@ const MapModule = (() => {
   }
 
   /**
-   * POI検索結果をマーカーで表示（カテゴリごとに色分け）
-   * @param {Array} results - POI結果の配列
-   * @param {Object} options - { dimmed: true でグレー表示(交差外) }
+   * POI検索結果をマーカーで表示（ランキング付き）
+   * @param {Array} results - スコア付きPOI結果の配列（スコア降順）
    */
-  function showPOIResults(results, options = {}) {
-    const dimmed = options.dimmed || false;
-    const color = dimmed ? '#aaa' : POI_COLORS[colorIndex % POI_COLORS.length];
-    if (!dimmed) colorIndex++;
+  function showPOIResults(results) {
+    colorIndex = 0;
 
     let count = 0;
-    for (const poi of results) {
-      const pinClass = dimmed ? 'poi-pin dimmed' : 'poi-pin';
+    for (let i = 0; i < results.length; i++) {
+      const poi = results[i];
+      const rank = i + 1;
+      const color = RANK_COLORS[i] || RANK_COLORS[RANK_COLORS.length - 1];
+
       const marker = L.marker([poi.lat, poi.lng], {
         icon: L.divIcon({
           className: 'poi-marker',
-          html: `<div class="${pinClass}" style="background:${color}"></div>`,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
+          html: `<div class="poi-rank-pin" style="background:${color}">${rank}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
         }),
-        zIndexOffset: dimmed ? -100 : 0,
+        zIndexOffset: 100 - i,
       });
 
-      marker.bindPopup(formatPOIPopup(poi, color));
+      marker.bindPopup(formatPOIPopup(poi, color, rank));
 
-      if (!dimmed) {
-        marker.bindTooltip(poi.name, {
-          permanent: true,
-          direction: 'top',
-          offset: [0, -12],
-          className: 'poi-tooltip',
-        });
-      }
+      marker.bindTooltip(`#${rank} ${poi.name}`, {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -16],
+        className: 'poi-tooltip',
+      });
 
       poiLayerGroup.addLayer(marker);
       count++;
@@ -161,11 +162,22 @@ const MapModule = (() => {
   }
 
   /**
-   * POIポップアップ: 名前 + 検索カテゴリ + OSMタグ一覧
+   * POIポップアップ: ランク + スコア + 名前 + 検索カテゴリ + OSMタグ一覧
    */
-  function formatPOIPopup(poi, color) {
-    let html = `<strong>${escapePopup(poi.name)}</strong><br>` +
-               `<span style="color:${color}">[${escapePopup(poi.type)}]</span>`;
+  function formatPOIPopup(poi, color, rank) {
+    let html = '';
+    if (rank) {
+      html += `<div style="font-size:12px;font-weight:700;color:${color};margin-bottom:4px">` +
+              `#${rank} — ${poi.totalScore || 0}点` +
+              `<span style="font-weight:400;font-size:10px;color:#888"> ` +
+              `(距離${poi.distanceScore || 0}×40%+テキスト${poi.textScore || 0}×60%)</span>` +
+              `</div>`;
+    }
+    html += `<strong>${escapePopup(poi.name)}</strong><br>` +
+            `<span style="color:${color}">[${escapePopup(poi.type)}]</span>`;
+    if (poi.distance !== undefined) {
+      html += ` <span style="font-size:11px;color:#666">${poi.distance}m</span>`;
+    }
 
     if (poi.tags && Object.keys(poi.tags).length > 0) {
       html += '<div class="poi-tags">';

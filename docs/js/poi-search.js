@@ -373,6 +373,97 @@ const POISearch = (() => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  // ========== スコアリング ==========
+  const TOP_N = 5;
+
+  /**
+   * 近距離ボーナス (0-100, ×40%)
+   * 誤差円内=100, ×1-2=80, ×2-3=60, ×3-4=40, ×4-5=20, ×5超=0
+   */
+  function calcDistanceScore(dist, accuracy) {
+    if (dist <= accuracy)     return 100;
+    if (dist <= accuracy * 2) return 80;
+    if (dist <= accuracy * 3) return 60;
+    if (dist <= accuracy * 4) return 40;
+    if (dist <= accuracy * 5) return 20;
+    return 0;
+  }
+
+  /**
+   * テキストマッチスコア (0-100, ×60%)
+   *
+   * ■ 辞書マッチ (searchKeyword が引用符なし):
+   *   tag+name フィルタ済み → 高信頼ベース 85点
+   *
+   * ■ 固有名詞検索 (searchKeyword が "keyword" 形式):
+   *   タグ重要度 × マッチ品質
+   *
+   *   タグ重要度:
+   *     name=1.0, brand=0.85, operator=0.75, alt_name/short_name=0.7,
+   *     name:*=0.65, その他=0.3
+   *
+   *   マッチ品質:
+   *     完全一致=1.0        "めんぱち" == "めんぱち"
+   *     前方一致=0.9        "めんぱち" found at start of "めんぱち 川崎店"
+   *     含有=0.5+比率×0.3   "めんぱち" in "居酒屋めんぱち本店" → 比率=4/9≒0.44 → 0.63
+   */
+  const TAG_WEIGHTS = {
+    name: 1.0, brand: 0.85, operator: 0.75,
+    alt_name: 0.7, short_name: 0.7, official_name: 0.7, old_name: 0.7,
+  };
+
+  function calcTextScore(poi, searchKeyword) {
+    // 辞書マッチ → ベース85点
+    if (!searchKeyword.startsWith('"')) {
+      return 85;
+    }
+
+    const keyword = searchKeyword.replace(/"/g, '');
+    const kwLower = keyword.toLowerCase();
+    if (!poi.tags || !keyword) return 10;
+
+    let best = 0;
+
+    for (const [key, value] of Object.entries(poi.tags)) {
+      const valLower = value.toLowerCase();
+      if (!valLower.includes(kwLower)) continue;
+
+      // タグ重要度
+      let w = TAG_WEIGHTS[key];
+      if (w === undefined) {
+        w = key.startsWith('name') ? 0.65 : 0.3;
+      }
+
+      // マッチ品質
+      let q;
+      if (valLower === kwLower) {
+        q = 1.0;                         // 完全一致
+      } else if (valLower.startsWith(kwLower)) {
+        q = 0.9;                         // 前方一致
+      } else {
+        const ratio = keyword.length / value.length;
+        q = 0.5 + ratio * 0.3;          // 含有 + 長さ比率
+      }
+
+      best = Math.max(best, w * q * 100);
+    }
+
+    return Math.round(best) || 10;
+  }
+
+  /**
+   * 総合スコア = 距離×40% + テキスト×60%
+   */
+  function scorePOI(poi, callerLocation, searchKeyword) {
+    const dist = distanceMeters(
+      callerLocation.lat, callerLocation.lng, poi.lat, poi.lng
+    );
+    const dScore = calcDistanceScore(dist, callerLocation.accuracy);
+    const tScore = calcTextScore(poi, searchKeyword);
+    const total = Math.round(dScore * 0.4 + tScore * 0.6);
+    return { totalScore: total, distanceScore: dScore, textScore: tScore, distance: Math.round(dist) };
+  }
+
   // ========== 複数カテゴリの交差絞り込み ==========
   // 各カテゴリのPOI同士が proximityRadius 以内にあるペア/グループを抽出
   function findIntersections(searchResults, proximityRadius) {
@@ -472,13 +563,17 @@ const POISearch = (() => {
 
     const searchResults = await Promise.all([...dictSearches, ...nameSearches]);
 
-    // 全結果をフラットに
+    // 全結果をフラットにしてスコアリング
     const allResults = [];
     for (const r of searchResults) {
-      allResults.push(...r.pois.map(poi => ({
-        ...poi,
-        searchKeyword: r.keyword.label,
-      })));
+      for (const poi of r.pois) {
+        const scores = scorePOI(poi, callerLocation, r.keyword.label);
+        allResults.push({
+          ...poi,
+          searchKeyword: r.keyword.label,
+          ...scores,
+        });
+      }
     }
 
     // ラベル収集
@@ -492,14 +587,24 @@ const POISearch = (() => {
       intersections = findIntersections(effectiveResults, radius);
     }
 
+    // スコア降順ソート → 上位N件
+    allResults.sort((a, b) => b.totalScore - a.totalScore);
+    const totalBeforeFilter = allResults.length;
+    const topResults = allResults.slice(0, TOP_N);
+
     return {
       keywords: allLabels,
       radius,
-      results: allResults,
+      results: topResults,
+      totalCount: totalBeforeFilter,
       intersections,
       isMultiKeyword: effectiveResults.length >= 2,
     };
   }
 
-  return { extractKeywords, extractProperNouns, searchByName, searchNearby, analyzeMessage, distanceMeters };
+  return {
+    extractKeywords, extractProperNouns, searchByName, searchNearby,
+    analyzeMessage, distanceMeters, calcDistanceScore, calcTextScore, scorePOI,
+    TOP_N,
+  };
 })();
