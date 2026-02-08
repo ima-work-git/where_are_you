@@ -10,6 +10,7 @@
 const POISearch = (() => {
 
   const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+  const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
 
   // ========== キーワード辞書 ==========
   const KEYWORDS = [
@@ -307,8 +308,30 @@ const POISearch = (() => {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /**
+   * 固有名詞検索: Overpass全タグ検索 + Nominatimジオコーディング 並行実行
+   * Nominatimは読み仮名→漢字地名の変換を内部で処理するため、
+   * "むさしこすぎ" → "武蔵小杉" のような検索が可能
+   */
   async function searchByName(lat, lng, radiusMeters, name) {
-    // かな正規化: ひらがな/カタカナ両形を自動生成してOR検索
+    const [overpassPois, nominatimPois] = await Promise.all([
+      searchByNameOverpass(lat, lng, radiusMeters, name),
+      searchByNominatim(lat, lng, radiusMeters, name),
+    ]);
+
+    // 近接50m以内の重複を除去してマージ
+    const merged = [...overpassPois];
+    for (const np of nominatimPois) {
+      const isDupe = merged.some(op =>
+        distanceMeters(op.lat, op.lng, np.lat, np.lng) < 50
+      );
+      if (!isDupe) merged.push(np);
+    }
+    return merged;
+  }
+
+  /** Overpass 全タグ横断検索（かなバリアント付き） */
+  async function searchByNameOverpass(lat, lng, radiusMeters, name) {
     const variants = kanaVariants(name);
     const regexPart = variants.map(v => escapeRegex(v)).join('|');
     const query = `
@@ -331,7 +354,6 @@ const POISearch = (() => {
 
     const data = await res.json();
     return data.elements.map(el => {
-      // マッチしたタグを特定（どのタグにヒットしたか表示用）
       const matchedTag = findMatchedTag(el.tags, name);
       return {
         id: el.id,
@@ -342,6 +364,40 @@ const POISearch = (() => {
         type: matchedTag ? `${matchedTag.key}: ${name}` : `全タグ検索: ${name}`,
       };
     }).filter(el => el.lat && el.lng);
+  }
+
+  /**
+   * Nominatim ジオコーディング検索
+   * OSM内部の読み仮名辞書を利用して、ひらがな→漢字地名を解決
+   * 例: "むさしこすぎ"→武蔵小杉, "しながわ"→品川
+   */
+  async function searchByNominatim(lat, lng, radiusMeters, name) {
+    const deg = radiusMeters / 111000;
+    const params = new URLSearchParams({
+      q: name,
+      format: 'json',
+      limit: '5',
+      viewbox: `${(lng - deg).toFixed(6)},${(lat + deg).toFixed(6)},${(lng + deg).toFixed(6)},${(lat - deg).toFixed(6)}`,
+      bounded: '1',
+      'accept-language': 'ja',
+    });
+
+    try {
+      const res = await fetch(`${NOMINATIM_ENDPOINT}?${params}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map(item => ({
+        id: `nom_${item.place_id}`,
+        name: item.display_name.split(',')[0].trim(),
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        tags: { display_name: item.display_name, type: item.type, class: item.class },
+        type: `地名検索: ${name}`,
+      })).filter(el => el.lat && el.lng);
+    } catch (e) {
+      console.error(`Nominatim検索エラー (${name}):`, e);
+      return [];
+    }
   }
 
   /**
@@ -360,13 +416,24 @@ const POISearch = (() => {
   }
 
   // ========== Overpass API クエリ ==========
+  /**
+   * 辞書マッチ検索: タグ検索 + ラベル名のname検索を1クエリで実行
+   * 例: "寿司屋" → [amenity=restaurant][name~"寿司"] に加え、
+   *     ["name"~"寿司屋|すしや|スシヤ"] でタグ不備のエントリも拾う
+   */
   async function searchNearby(lat, lng, radiusMeters, keyword) {
+    // label名のかなバリアントでname横断検索も追加
+    const nameVariants = kanaVariants(keyword.label).map(v => escapeRegex(v));
+    const nameRegex = nameVariants.join('|');
+
     const query = `
       [out:json][timeout:10];
       (
         node${keyword.tags}(around:${radiusMeters},${lat},${lng});
         way${keyword.tags}(around:${radiusMeters},${lat},${lng});
         relation${keyword.tags}(around:${radiusMeters},${lat},${lng});
+        node["name"~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
+        way["name"~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
       );
       out center body;
     `;
