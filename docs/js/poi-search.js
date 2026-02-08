@@ -275,7 +275,9 @@ const POISearch = (() => {
     return false;
   }
 
-  // ========== 固有名詞でOSM名前検索 ==========
+  // ========== 固有名詞で全タグ横断検索 ==========
+  // [~"."~"keyword"] = 全タグのvalue を正規表現マッチ
+  // name, brand, operator, alt_name, description, ref 等すべてが対象
   function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
@@ -285,9 +287,9 @@ const POISearch = (() => {
     const query = `
       [out:json][timeout:10];
       (
-        node["name"~"${safeName}",i](around:${radiusMeters},${lat},${lng});
-        way["name"~"${safeName}",i](around:${radiusMeters},${lat},${lng});
-        relation["name"~"${safeName}",i](around:${radiusMeters},${lat},${lng});
+        node[~"."~"${safeName}",i](around:${radiusMeters},${lat},${lng});
+        way[~"."~"${safeName}",i](around:${radiusMeters},${lat},${lng});
+        relation[~"."~"${safeName}",i](around:${radiusMeters},${lat},${lng});
       );
       out center body;
     `;
@@ -301,14 +303,32 @@ const POISearch = (() => {
     if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
 
     const data = await res.json();
-    return data.elements.map(el => ({
-      id: el.id,
-      name: el.tags?.name || name,
-      lat: el.lat || el.center?.lat,
-      lng: el.lon || el.center?.lon,
-      tags: el.tags || {},
-      type: `名前検索: ${name}`,
-    })).filter(el => el.lat && el.lng);
+    return data.elements.map(el => {
+      // マッチしたタグを特定（どのタグにヒットしたか表示用）
+      const matchedTag = findMatchedTag(el.tags, name);
+      return {
+        id: el.id,
+        name: el.tags?.name || el.tags?.brand || el.tags?.operator || name,
+        lat: el.lat || el.center?.lat,
+        lng: el.lon || el.center?.lon,
+        tags: el.tags || {},
+        type: matchedTag ? `${matchedTag.key}: ${name}` : `全タグ検索: ${name}`,
+      };
+    }).filter(el => el.lat && el.lng);
+  }
+
+  /**
+   * どのタグにキーワードがヒットしたか特定
+   */
+  function findMatchedTag(tags, keyword) {
+    if (!tags) return null;
+    const lower = keyword.toLowerCase();
+    for (const [key, value] of Object.entries(tags)) {
+      if (value.toLowerCase().includes(lower)) {
+        return { key, value };
+      }
+    }
+    return null;
   }
 
   // ========== Overpass API クエリ ==========
