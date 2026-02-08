@@ -435,6 +435,81 @@ header h1 {
   background: #d35400;
 }
 
+/* ========== Test Mode ========== */
+.btn-test {
+  background: #8e44ad;
+  color: #fff;
+}
+
+.btn-test:hover:not(:disabled) {
+  background: #7d3c98;
+}
+
+.btn-test.active {
+  background: #6c3483;
+  box-shadow: 0 0 0 2px #d2b4de;
+}
+
+.test-mode-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255,255,255,0.97);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  width: 240px;
+  font-size: 13px;
+}
+
+.test-mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #8e44ad;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px 8px 0 0;
+}
+
+.test-mode-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.test-hint {
+  color: #888;
+  font-size: 11px;
+  text-align: center;
+}
+
+.test-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.test-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+}
+
+.test-field input[type="number"] {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+.test-field input[type="range"] {
+  width: 100%;
+}
+
 /* ========== Caller Marker ========== */
 .caller-marker {
   background: transparent;

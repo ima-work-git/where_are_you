@@ -42,6 +42,9 @@
           <button id="btn-clear-poi" class="btn btn-small btn-warn" title="POIマーカーをクリア">
             POIクリア
           </button>
+          <button id="btn-test-mode" class="btn btn-small btn-test" title="試験用に任意の位置・誤差を設定">
+            試験モード
+          </button>
         </div>
         <div id="caller-status" class="caller-status">
           <span class="dot red"></span> 通報者未接続
@@ -51,6 +54,31 @@
       <div class="content-area">
         <div class="map-container">
           <div id="map"></div>
+
+          <!-- 試験モードパネル -->
+          <div id="test-mode-panel" class="test-mode-panel hidden">
+            <div class="test-mode-header">
+              <span>試験モード</span>
+              <button id="btn-test-close" class="btn btn-small btn-secondary">閉じる</button>
+            </div>
+            <div class="test-mode-body">
+              <p class="test-hint">地図をクリックして位置を設定</p>
+              <div class="test-field">
+                <label>緯度:</label>
+                <input type="number" id="test-lat" step="0.000001" placeholder="35.570000">
+              </div>
+              <div class="test-field">
+                <label>経度:</label>
+                <input type="number" id="test-lng" step="0.000001" placeholder="139.660000">
+              </div>
+              <div class="test-field">
+                <label>誤差半径: <span id="test-accuracy-val">50</span>m</label>
+                <input type="range" id="test-accuracy" min="5" max="500" value="50">
+              </div>
+              <button id="btn-test-apply" class="btn btn-primary btn-small" style="width:100%">この位置を設定</button>
+            </div>
+          </div>
+
           <div id="location-info" class="location-info hidden">
             <div class="location-detail">
               <span class="label">緯度:</span>

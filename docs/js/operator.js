@@ -18,6 +18,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let callerLocation = null;
 
+  // === 試験モード ===
+  const btnTestMode = document.getElementById('btn-test-mode');
+  const testPanel = document.getElementById('test-mode-panel');
+  const btnTestClose = document.getElementById('btn-test-close');
+  const btnTestApply = document.getElementById('btn-test-apply');
+  const testLatInput = document.getElementById('test-lat');
+  const testLngInput = document.getElementById('test-lng');
+  const testAccuracySlider = document.getElementById('test-accuracy');
+  const testAccuracyVal = document.getElementById('test-accuracy-val');
+  let testModeActive = false;
+  let testClickHandler = null;
+
+  btnTestMode.addEventListener('click', toggleTestMode);
+  btnTestClose.addEventListener('click', () => toggleTestMode(false));
+
+  testAccuracySlider.addEventListener('input', () => {
+    testAccuracyVal.textContent = testAccuracySlider.value;
+  });
+
+  btnTestApply.addEventListener('click', applyTestLocation);
+
+  function toggleTestMode(forceOff) {
+    testModeActive = forceOff === false ? false : !testModeActive;
+    testPanel.classList.toggle('hidden', !testModeActive);
+    btnTestMode.classList.toggle('active', testModeActive);
+
+    const m = MapModule.getMap();
+    if (!m) return;
+
+    if (testModeActive) {
+      m.getContainer().style.cursor = 'crosshair';
+      testClickHandler = (e) => {
+        testLatInput.value = e.latlng.lat.toFixed(6);
+        testLngInput.value = e.latlng.lng.toFixed(6);
+        applyTestLocation();
+      };
+      m.on('click', testClickHandler);
+      appendSystemMessage('[試験モード] 地図をクリックして通報者位置を設定できます');
+    } else {
+      m.getContainer().style.cursor = '';
+      if (testClickHandler) {
+        m.off('click', testClickHandler);
+        testClickHandler = null;
+      }
+    }
+  }
+
+  function applyTestLocation() {
+    const lat = parseFloat(testLatInput.value);
+    const lng = parseFloat(testLngInput.value);
+    const accuracy = parseInt(testAccuracySlider.value, 10);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      appendSystemMessage('[試験モード] 緯度・経度を入力するか、地図をクリックしてください');
+      return;
+    }
+
+    const loc = { lat, lng, accuracy, timestamp: Date.now() };
+    handleLocationUpdate(loc);
+    appendSystemMessage(`[試験モード] 位置設定: ${lat.toFixed(6)}, ${lng.toFixed(6)} / 誤差±${accuracy}m`);
+  }
+
   // セッション作成
   btnCreateSession.addEventListener('click', createSession);
   document.getElementById('btn-new-session').addEventListener('click', () => {
