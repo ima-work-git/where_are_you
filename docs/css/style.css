@@ -422,6 +422,27 @@ header h1 {
   white-space: nowrap;
 }
 
+.poi-tags {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #ddd;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.poi-tags .tag {
+  display: block;
+  font-size: 11px;
+  color: #555;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.poi-tags .tag b {
+  color: #2980b9;
+  font-weight: 600;
+}
+
 .poi-tooltip::before {
   border-top-color: rgba(0,0,0,0.75);
 }

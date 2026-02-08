@@ -116,10 +116,7 @@ const MapModule = (() => {
         zIndexOffset: dimmed ? -100 : 0,
       });
 
-      marker.bindPopup(
-        `<strong>${escapePopup(poi.name)}</strong><br>` +
-        `<span style="color:${color}">[${escapePopup(poi.type)}]</span>`
-      );
+      marker.bindPopup(formatPOIPopup(poi, color));
 
       if (!dimmed) {
         marker.bindTooltip(poi.name, {
@@ -161,6 +158,41 @@ const MapModule = (() => {
       searchCircle = null;
     }
     colorIndex = 0;
+  }
+
+  /**
+   * POIポップアップ: 名前 + 検索カテゴリ + OSMタグ一覧
+   */
+  function formatPOIPopup(poi, color) {
+    let html = `<strong>${escapePopup(poi.name)}</strong><br>` +
+               `<span style="color:${color}">[${escapePopup(poi.type)}]</span>`;
+
+    if (poi.tags && Object.keys(poi.tags).length > 0) {
+      html += '<div class="poi-tags">';
+      // 重要タグを先に、残りをソートして表示
+      const priority = ['amenity', 'shop', 'tourism', 'leisure', 'railway', 'highway',
+                         'cuisine', 'phone', 'website', 'opening_hours', 'addr:full',
+                         'addr:housenumber', 'addr:street', 'addr:city'];
+      const shown = new Set();
+
+      for (const key of priority) {
+        if (poi.tags[key]) {
+          html += `<span class="tag"><b>${escapePopup(key)}</b>=${escapePopup(poi.tags[key])}</span>`;
+          shown.add(key);
+        }
+      }
+
+      // 残りのタグ (name は既に表示済みなので除外)
+      const rest = Object.keys(poi.tags)
+        .filter(k => !shown.has(k) && k !== 'name')
+        .sort();
+      for (const key of rest) {
+        html += `<span class="tag"><b>${escapePopup(key)}</b>=${escapePopup(poi.tags[key])}</span>`;
+      }
+      html += '</div>';
+    }
+
+    return html;
   }
 
   function escapePopup(str) {

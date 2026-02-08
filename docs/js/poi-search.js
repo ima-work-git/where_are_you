@@ -150,9 +150,13 @@ const POISearch = (() => {
   ];
 
   // ========== テキストからキーワード抽出 ==========
+  // フィラー語・助詞・動詞語尾を除去するパターン
+  const FILLER_RE = /えーっと|あのー?|ええと|うーん|そのー?|なんか|あー+|えー+|うー+|っと/g;
+  const NOISE_RE = /(?:が|は|の|を|に|で|と|も|へ|から|まで|より|って|けど|だけど|ので|のに|ので|だから|(?:見|み)え(?:る|ます|た)|(?:あ|有)り?(?:ます|ました)?|い(?:ます|ました)|です|ました|ている|てる|近く|(?:の)?(?:前|横|隣|向かい|裏|奥|手前|そば|となり))\b/g;
+
   function extractKeywords(text) {
     const cleaned = text
-      .replace(/えーっと|あのー?|ええと|うーん|そのー?|なんか|あー+|えー+|うー+|っと/g, '')
+      .replace(FILLER_RE, '')
       .replace(/[、。！？!?,.\s]+/g, ' ')
       .trim();
 
@@ -163,6 +167,78 @@ const POISearch = (() => {
       }
     }
     return matches;
+  }
+
+  /**
+   * 辞書に無い固有名詞を抽出（フォールバック用）
+   * カタカナ2文字以上、漢字2文字以上を候補として返す
+   */
+  function extractProperNouns(text) {
+    const cleaned = text
+      .replace(FILLER_RE, '')
+      .replace(NOISE_RE, '')
+      .replace(/[、。！？!?,.\s]+/g, ' ')
+      .trim();
+
+    const candidates = [];
+
+    // カタカナ語 (2文字以上、・ー含む)
+    const katakanaRe = /[ァ-ヴー・]{2,}/g;
+    let m;
+    while ((m = katakanaRe.exec(cleaned)) !== null) {
+      candidates.push(m[0]);
+    }
+
+    // 漢字語 (2文字以上)
+    const kanjiRe = /[\u4e00-\u9fff]{2,}/g;
+    while ((m = kanjiRe.exec(cleaned)) !== null) {
+      candidates.push(m[0]);
+    }
+
+    // 英数字 (2文字以上)
+    const alphaRe = /[A-Za-z0-9]{2,}/g;
+    while ((m = alphaRe.exec(cleaned)) !== null) {
+      candidates.push(m[0]);
+    }
+
+    // 辞書にマッチ済みのものは除外
+    return candidates.filter(c => {
+      for (const kw of KEYWORDS) {
+        if (kw.pattern.test(c)) return false;
+      }
+      return true;
+    });
+  }
+
+  // ========== 固有名詞でOSM名前検索 ==========
+  async function searchByName(lat, lng, radiusMeters, name) {
+    const query = `
+      [out:json][timeout:10];
+      (
+        node["name"~"${name}",i](around:${radiusMeters},${lat},${lng});
+        way["name"~"${name}",i](around:${radiusMeters},${lat},${lng});
+        relation["name"~"${name}",i](around:${radiusMeters},${lat},${lng});
+      );
+      out center body;
+    `;
+
+    const res = await fetch(OVERPASS_ENDPOINT, {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+
+    if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+
+    const data = await res.json();
+    return data.elements.map(el => ({
+      id: el.id,
+      name: el.tags?.name || name,
+      lat: el.lat || el.center?.lat,
+      lng: el.lon || el.center?.lon,
+      tags: el.tags || {},
+      type: `名前検索: ${name}`,
+    })).filter(el => el.lat && el.lng);
   }
 
   // ========== Overpass API クエリ ==========
@@ -261,12 +337,18 @@ const POISearch = (() => {
     if (!callerLocation) return null;
 
     const keywords = extractKeywords(text);
-    if (keywords.length === 0) return null;
-
     const radius = callerLocation.accuracy * 5;
 
-    // 全キーワードを並列検索
-    const searches = keywords.map(async (kw) => {
+    // 辞書マッチ + 固有名詞フォールバック
+    const properNouns = extractProperNouns(text);
+
+    // どちらもなければスキップ
+    if (keywords.length === 0 && properNouns.length === 0) return null;
+
+    const allLabels = [];
+
+    // 辞書マッチの検索
+    const dictSearches = keywords.map(async (kw) => {
       try {
         const pois = await searchNearby(
           callerLocation.lat,
@@ -281,7 +363,24 @@ const POISearch = (() => {
       }
     });
 
-    const searchResults = await Promise.all(searches);
+    // 固有名詞の名前検索
+    const nameSearches = properNouns.map(async (noun) => {
+      try {
+        const pois = await searchByName(
+          callerLocation.lat,
+          callerLocation.lng,
+          radius,
+          noun
+        );
+        const kw = { label: `"${noun}"`, tags: '' };
+        return { keyword: kw, pois };
+      } catch (e) {
+        console.error(`名前検索エラー (${noun}):`, e);
+        return { keyword: { label: `"${noun}"`, tags: '' }, pois: [] };
+      }
+    });
+
+    const searchResults = await Promise.all([...dictSearches, ...nameSearches]);
 
     // 全結果をフラットに
     const allResults = [];
@@ -292,20 +391,25 @@ const POISearch = (() => {
       })));
     }
 
+    // ラベル収集
+    for (const kw of keywords) allLabels.push(kw.label);
+    for (const noun of properNouns) allLabels.push(`"${noun}"`);
+
     // 複数カテゴリの交差判定
     let intersections = null;
-    if (keywords.length >= 2) {
-      intersections = findIntersections(searchResults, radius);
+    const effectiveResults = searchResults.filter(r => r.pois.length > 0);
+    if (effectiveResults.length >= 2) {
+      intersections = findIntersections(effectiveResults, radius);
     }
 
     return {
-      keywords: keywords.map(k => k.label),
+      keywords: allLabels,
       radius,
       results: allResults,
       intersections,
-      isMultiKeyword: keywords.length >= 2,
+      isMultiKeyword: effectiveResults.length >= 2,
     };
   }
 
-  return { extractKeywords, searchNearby, analyzeMessage, distanceMeters };
+  return { extractKeywords, extractProperNouns, searchByName, searchNearby, analyzeMessage, distanceMeters };
 })();
