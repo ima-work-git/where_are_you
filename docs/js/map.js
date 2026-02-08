@@ -1,14 +1,22 @@
 /**
  * 地図モジュール - Leaflet + OpenStreetMap
- * GPS誤差円の表示、マーカー管理を担当
+ * GPS誤差円の表示、POIマーカー管理を担当
  */
 const MapModule = (() => {
   let map = null;
   let callerMarker = null;
   let accuracyCircle = null;
+  let searchCircle = null;
+  let poiLayerGroup = null;
 
   const DEFAULT_CENTER = [36.0, 137.0];
   const DEFAULT_ZOOM = 5;
+
+  const POI_COLORS = [
+    '#e67e22', '#8e44ad', '#27ae60', '#2980b9',
+    '#d35400', '#16a085', '#c0392b', '#2c3e50',
+  ];
+  let colorIndex = 0;
 
   function init(elementId) {
     map = L.map(elementId).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
@@ -17,6 +25,8 @@ const MapModule = (() => {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map);
+
+    poiLayerGroup = L.layerGroup().addTo(map);
 
     return map;
   }
@@ -64,6 +74,79 @@ const MapModule = (() => {
     );
   }
 
+  /**
+   * POI検索範囲の円を表示（黄色破線）
+   */
+  function showSearchRadius(lat, lng, radius) {
+    if (searchCircle) {
+      searchCircle.setLatLng([lat, lng]);
+      searchCircle.setRadius(radius);
+    } else {
+      searchCircle = L.circle([lat, lng], {
+        radius,
+        color: '#f39c12',
+        fillColor: '#f39c12',
+        fillOpacity: 0.05,
+        weight: 1,
+        dashArray: '4, 8',
+      }).addTo(map);
+    }
+  }
+
+  /**
+   * POI検索結果をマーカーで表示
+   */
+  function showPOIResults(results) {
+    const color = POI_COLORS[colorIndex % POI_COLORS.length];
+    colorIndex++;
+
+    let count = 0;
+    for (const poi of results) {
+      const marker = L.marker([poi.lat, poi.lng], {
+        icon: L.divIcon({
+          className: 'poi-marker',
+          html: `<div class="poi-pin" style="background:${color}"></div>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        }),
+      });
+
+      marker.bindPopup(
+        `<strong>${escapePopup(poi.name)}</strong><br>` +
+        `<span style="color:${color}">[${escapePopup(poi.type)}]</span>`
+      );
+
+      marker.bindTooltip(poi.name, {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -12],
+        className: 'poi-tooltip',
+      });
+
+      poiLayerGroup.addLayer(marker);
+      count++;
+    }
+    return count;
+  }
+
+  /**
+   * POIマーカーをクリア
+   */
+  function clearPOIResults() {
+    if (poiLayerGroup) poiLayerGroup.clearLayers();
+    if (searchCircle) {
+      map.removeLayer(searchCircle);
+      searchCircle = null;
+    }
+    colorIndex = 0;
+  }
+
+  function escapePopup(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
   function getMap() {
     return map;
   }
@@ -72,5 +155,8 @@ const MapModule = (() => {
     if (map) map.invalidateSize();
   }
 
-  return { init, updateCallerLocation, getMap, invalidateSize };
+  return {
+    init, updateCallerLocation, getMap, invalidateSize,
+    showSearchRadius, showPOIResults, clearPOIResults,
+  };
 })();

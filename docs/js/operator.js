@@ -1,5 +1,6 @@
 /**
  * 指令台 (Operator) コントローラー
+ * POI自動検索機能付き
  */
 document.addEventListener('DOMContentLoaded', () => {
   const sessionSetup = document.getElementById('session-setup');
@@ -13,6 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSend = document.getElementById('btn-send');
   const locationInfo = document.getElementById('location-info');
   const chatMessages = document.getElementById('chat-messages');
+  const btnClearPoi = document.getElementById('btn-clear-poi');
+
+  let callerLocation = null;
 
   // セッション作成
   btnCreateSession.addEventListener('click', createSession);
@@ -39,6 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btnCopyLink.textContent = 'コピーしました!';
       setTimeout(() => { btnCopyLink.textContent = orig; }, 2000);
     });
+  });
+
+  // POIマーカークリア
+  btnClearPoi.addEventListener('click', () => {
+    MapModule.clearPOIResults();
+    appendSystemMessage('POIマーカーをクリアしました');
   });
 
   async function createSession() {
@@ -76,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function handleLocationUpdate(loc) {
+    callerLocation = loc;
     MapModule.updateCallerLocation(loc.lat, loc.lng, loc.accuracy);
 
     locationInfo.classList.remove('hidden');
@@ -113,6 +124,30 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // チャットメッセージを自動解析してPOI検索
+    analyzeChatForPOI(msg.text);
+  }
+
+  async function analyzeChatForPOI(text) {
+    if (!callerLocation) return;
+
+    const result = await POISearch.analyzeMessage(text, callerLocation);
+    if (!result) return;
+
+    appendSystemMessage(
+      `[自動検索] "${result.keywords.join(', ')}" を半径${Math.round(result.radius)}m内で検索中...`
+    );
+
+    MapModule.showSearchRadius(callerLocation.lat, callerLocation.lng, result.radius);
+
+    if (result.results.length === 0) {
+      appendSystemMessage('[自動検索] 該当する施設が見つかりませんでした');
+      return;
+    }
+
+    const count = MapModule.showPOIResults(result.results);
+    appendSystemMessage(`[自動検索] ${count}件の候補をマーカー表示しました`);
   }
 
   function appendSystemMessage(text) {
