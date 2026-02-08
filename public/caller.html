@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>位置情報送信 - 消防通報</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app" class="caller-view">
+    <!-- ヘッダー -->
+    <header id="header" class="caller-header">
+      <h1>消防 - 位置情報送信</h1>
+      <span id="connection-status" class="status-badge disconnected">未接続</span>
+    </header>
+
+    <!-- セッション参加前 -->
+    <div id="session-setup" class="session-setup">
+      <div class="setup-card">
+        <h2>位置情報を共有</h2>
+        <p>消防指令台にあなたの位置情報を送信します。</p>
+        <p class="note">URLにセッションIDが含まれていない場合は、指令台から送られたリンクを使用してください。</p>
+      </div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <div id="main-content" class="main-content hidden">
+      <!-- GPS状態表示 -->
+      <div id="gps-status-bar" class="gps-status-bar">
+        <div id="gps-status" class="gps-status">
+          <span class="dot yellow"></span>
+          <span id="gps-status-text">GPS取得中...</span>
+        </div>
+        <button id="btn-refresh-gps" class="btn btn-small">位置再取得</button>
+      </div>
+
+      <div class="content-area caller-content">
+        <!-- 地図（通報者側） -->
+        <div class="map-container caller-map">
+          <div id="map"></div>
+        </div>
+
+        <!-- チャット -->
+        <div class="chat-container">
+          <div class="chat-header">
+            <h3>指令台との通信</h3>
+          </div>
+          <div id="chat-messages" class="chat-messages"></div>
+          <div class="chat-input-area">
+            <textarea id="chat-input" placeholder="現在の状況を入力... (Enter で送信)" rows="2"></textarea>
+            <button id="btn-send" class="btn btn-primary">送信</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/chat.js"></script>
+  <script src="/js/caller.js"></script>
+</body>
+</html>
