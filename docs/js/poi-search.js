@@ -152,15 +152,39 @@ const POISearch = (() => {
   // ========== テキストからキーワード抽出 ==========
   const FILLER_RE = /えーっと|あのー?|ええと|うーん|そのー?|なんか|あー+|えー+|うー+|っと/g;
 
+  // ========== かな正規化（ひらがな↔カタカナ汎用変換） ==========
+  function toHiragana(str) {
+    return str.replace(/[\u30A1-\u30F6]/g, ch =>
+      String.fromCharCode(ch.charCodeAt(0) - 0x60)
+    );
+  }
+
+  function toKatakana(str) {
+    return str.replace(/[\u3041-\u3096]/g, ch =>
+      String.fromCharCode(ch.charCodeAt(0) + 0x60)
+    );
+  }
+
+  /** 元文字列 + ひらがな版 + カタカナ版（重複除去）*/
+  function kanaVariants(str) {
+    const set = new Set([str, toHiragana(str), toKatakana(str)]);
+    return [...set];
+  }
+
   function extractKeywords(text) {
     const cleaned = text
       .replace(FILLER_RE, '')
       .replace(/[、。！？!?,.\s]+/g, ' ')
       .trim();
 
+    // かな正規化: カタカナ版・ひらがな版でもパターンマッチを試行
+    const hiraClean = toHiragana(cleaned);
+    const kataClean = toKatakana(cleaned);
+
     const matches = [];
     for (const kw of KEYWORDS) {
-      if (kw.pattern.test(cleaned) || kw.pattern.test(text)) {
+      if (kw.pattern.test(cleaned) || kw.pattern.test(text) ||
+          kw.pattern.test(hiraClean) || kw.pattern.test(kataClean)) {
         matches.push(kw);
       }
     }
@@ -259,10 +283,11 @@ const POISearch = (() => {
       candidates.push(current);
     }
 
-    // 辞書にマッチ済みのものは除外
+    // 辞書にマッチ済みのものは除外（かな正規化で漏れなく判定）
     return candidates.filter(c => {
+      const variants = kanaVariants(c);
       for (const kw of KEYWORDS) {
-        if (kw.pattern.test(c)) return false;
+        if (variants.some(v => kw.pattern.test(v))) return false;
       }
       return true;
     });
@@ -283,13 +308,15 @@ const POISearch = (() => {
   }
 
   async function searchByName(lat, lng, radiusMeters, name) {
-    const safeName = escapeRegex(name);
+    // かな正規化: ひらがな/カタカナ両形を自動生成してOR検索
+    const variants = kanaVariants(name);
+    const regexPart = variants.map(v => escapeRegex(v)).join('|');
     const query = `
       [out:json][timeout:10];
       (
-        node[~"."~"${safeName}",i](around:${radiusMeters},${lat},${lng});
-        way[~"."~"${safeName}",i](around:${radiusMeters},${lat},${lng});
-        relation[~"."~"${safeName}",i](around:${radiusMeters},${lat},${lng});
+        node[~"."~"${regexPart}",i](around:${radiusMeters},${lat},${lng});
+        way[~"."~"${regexPart}",i](around:${radiusMeters},${lat},${lng});
+        relation[~"."~"${regexPart}",i](around:${radiusMeters},${lat},${lng});
       );
       out center body;
     `;
@@ -318,13 +345,14 @@ const POISearch = (() => {
   }
 
   /**
-   * どのタグにキーワードがヒットしたか特定
+   * どのタグにキーワードがヒットしたか特定（かな正規化対応）
    */
   function findMatchedTag(tags, keyword) {
     if (!tags) return null;
-    const lower = keyword.toLowerCase();
+    const variants = kanaVariants(keyword).map(v => v.toLowerCase());
     for (const [key, value] of Object.entries(tags)) {
-      if (value.toLowerCase().includes(lower)) {
+      const valLower = value.toLowerCase();
+      if (variants.some(v => valLower.includes(v))) {
         return { key, value };
       }
     }
@@ -419,14 +447,18 @@ const POISearch = (() => {
     }
 
     const keyword = searchKeyword.replace(/"/g, '');
-    const kwLower = keyword.toLowerCase();
     if (!poi.tags || !keyword) return 10;
+
+    // かな正規化: キーワードの全バリアント(ひらがな/カタカナ)を生成
+    const kwVariants = kanaVariants(keyword).map(v => v.toLowerCase());
 
     let best = 0;
 
     for (const [key, value] of Object.entries(poi.tags)) {
       const valLower = value.toLowerCase();
-      if (!valLower.includes(kwLower)) continue;
+      // いずれかのかなバリアントがヒットするか判定
+      const matched = kwVariants.find(kv => valLower.includes(kv));
+      if (!matched) continue;
 
       // タグ重要度
       let w = TAG_WEIGHTS[key];
@@ -436,9 +468,9 @@ const POISearch = (() => {
 
       // マッチ品質
       let q;
-      if (valLower === kwLower) {
+      if (valLower === matched) {
         q = 1.0;                         // 完全一致
-      } else if (valLower.startsWith(kwLower)) {
+      } else if (valLower.startsWith(matched)) {
         q = 0.9;                         // 前方一致
       } else {
         const ratio = keyword.length / value.length;

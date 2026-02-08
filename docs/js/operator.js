@@ -219,6 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = await POISearch.analyzeMessage(text, callerLocation);
     if (!result) return;
 
+    // 前回の検索結果をクリアしてから新しい結果を表示
+    MapModule.clearPOIResults();
+    clearRankingPanel();
+
     const r = Math.round(result.radius);
     appendSystemMessage(
       `[検索] "${result.keywords.join(', ')}" / 半径${r}m (精度${Math.round(callerLocation.accuracy)}m×5)`
