@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRefreshGps = document.getElementById('btn-refresh-gps');
   const chatInput = document.getElementById('chat-input');
   const btnSend = document.getElementById('btn-send');
+  const chatMessages = document.getElementById('chat-messages');
 
   let gpsWatchId = null;
 
@@ -18,12 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(location.search);
   const sessionId = params.get('session');
 
-  if (!sessionId) {
-    // セッションIDがない場合は案内を表示
-    return;
-  }
+  if (!sessionId) return;
 
-  // セッションが存在するか確認して参加
   joinSession(sessionId);
 
   // チャット送信
@@ -41,24 +38,34 @@ document.addEventListener('DOMContentLoaded', () => {
     startGpsWatch();
   });
 
-  function joinSession(sid) {
+  async function joinSession(peerId) {
     sessionSetup.classList.add('hidden');
     mainContent.classList.remove('hidden');
 
-    // 地図を初期化
     setTimeout(() => {
       MapModule.init('map');
       MapModule.invalidateSize();
     }, 100);
 
-    // WebSocket接続
-    ChatModule.connect(sid, 'caller', {
-      onLocationUpdate: handleLocationUpdate,
-      onConnectionChange: handleConnectionChange,
-    });
+    try {
+      await Connection.initAsCaller(peerId, {
+        onConnectionChange: handleConnectionChange,
+        onChat: appendChatMessage,
+        onLocation: handleLocationUpdate,
+        onSystemMessage: appendSystemMessage,
+        onError: (err) => {
+          if (err.type === 'peer-unavailable') {
+            appendSystemMessage('指令台が見つかりません。リンクを確認してください。');
+          } else {
+            appendSystemMessage('接続エラー: ' + err.type);
+          }
+        },
+      });
 
-    // GPS監視を開始
-    startGpsWatch();
+      startGpsWatch();
+    } catch (e) {
+      appendSystemMessage('接続に失敗しました。ページを再読み込みしてください。');
+    }
   }
 
   function startGpsWatch() {
@@ -69,15 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateGpsStatus('pending', 'GPS取得中...');
 
-    // 高精度のGPS取得
     gpsWatchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-
         updateGpsStatus('active', `GPS取得済み (精度: ±${Math.round(accuracy)}m)`);
 
-        // サーバーに位置情報を送信
-        ChatModule.sendLocation(latitude, longitude, accuracy);
+        // 指令台に位置情報を送信
+        Connection.sendLocation(latitude, longitude, accuracy);
 
         // 自分の地図にも表示
         MapModule.updateCallerLocation(latitude, longitude, accuracy);
@@ -115,9 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateGpsStatus(status, text) {
     gpsStatusText.textContent = text;
     gpsStatusBar.className = 'gps-status-bar';
-
     const dot = gpsStatusBar.querySelector('.dot');
-
     switch (status) {
       case 'active':
         gpsStatusBar.classList.add('active');
@@ -127,9 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
         gpsStatusBar.classList.add('error');
         dot.className = 'dot red';
         break;
-      case 'pending':
+      default:
         dot.className = 'dot yellow';
-        break;
     }
   }
 
@@ -145,8 +147,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
-    ChatModule.sendChat(text);
+    Connection.sendChat(text);
     chatInput.value = '';
     chatInput.focus();
+  }
+
+  function appendChatMessage(msg) {
+    const div = document.createElement('div');
+    div.className = `chat-msg ${msg.role}`;
+    const time = new Date(msg.timestamp).toLocaleTimeString('ja-JP');
+    div.innerHTML = `
+      <div class="msg-header">${escapeHtml(msg.sender)}</div>
+      <div class="msg-body">${escapeHtml(msg.text)}</div>
+      <div class="msg-time">${time}</div>
+    `;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function appendSystemMessage(text) {
+    const div = document.createElement('div');
+    div.className = 'chat-msg system';
+    div.textContent = text;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
   }
 });

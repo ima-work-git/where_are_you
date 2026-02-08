@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>位置情報送信 - 消防通報</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="app" class="caller-view">
-    <!-- ヘッダー -->
     <header id="header" class="caller-header">
       <h1>消防 - 位置情報送信</h1>
       <span id="connection-status" class="status-badge disconnected">未接続</span>
@@ -20,13 +19,12 @@
       <div class="setup-card">
         <h2>位置情報を共有</h2>
         <p>消防指令台にあなたの位置情報を送信します。</p>
-        <p class="note">URLにセッションIDが含まれていない場合は、指令台から送られたリンクを使用してください。</p>
+        <p class="note">指令台から送られたリンクを使用してください。</p>
       </div>
     </div>
 
     <!-- メインコンテンツ -->
     <div id="main-content" class="main-content hidden">
-      <!-- GPS状態表示 -->
       <div id="gps-status-bar" class="gps-status-bar">
         <div id="gps-status" class="gps-status">
           <span class="dot yellow"></span>
@@ -36,12 +34,10 @@
       </div>
 
       <div class="content-area caller-content">
-        <!-- 地図（通報者側） -->
         <div class="map-container caller-map">
           <div id="map"></div>
         </div>
 
-        <!-- チャット -->
         <div class="chat-container">
           <div class="chat-header">
             <h3>指令台との通信</h3>
@@ -57,8 +53,9 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/map.js"></script>
-  <script src="/js/chat.js"></script>
-  <script src="/js/caller.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/connection.js"></script>
+  <script src="js/caller.js"></script>
 </body>
 </html>

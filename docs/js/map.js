@@ -7,14 +7,12 @@ const MapModule = (() => {
   let callerMarker = null;
   let accuracyCircle = null;
 
-  // 日本全体が見える初期位置
   const DEFAULT_CENTER = [36.0, 137.0];
   const DEFAULT_ZOOM = 5;
 
   function init(elementId) {
     map = L.map(elementId).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    // OSM タイルレイヤー
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
@@ -26,7 +24,6 @@ const MapModule = (() => {
   function updateCallerLocation(lat, lng, accuracy) {
     const latlng = L.latLng(lat, lng);
 
-    // マーカー更新 or 作成
     if (callerMarker) {
       callerMarker.setLatLng(latlng);
     } else {
@@ -40,7 +37,6 @@ const MapModule = (() => {
       }).addTo(map);
     }
 
-    // 誤差円の更新 or 作成
     if (accuracyCircle) {
       accuracyCircle.setLatLng(latlng);
       accuracyCircle.setRadius(accuracy);
@@ -55,13 +51,11 @@ const MapModule = (() => {
       }).addTo(map);
     }
 
-    // 誤差円が収まるようにズーム
     map.fitBounds(accuracyCircle.getBounds(), {
       padding: [50, 50],
       maxZoom: 18,
     });
 
-    // ポップアップ
     callerMarker.bindPopup(
       `<strong>通報者位置</strong><br>` +
       `緯度: ${lat.toFixed(6)}<br>` +
@@ -75,9 +69,7 @@ const MapModule = (() => {
   }
 
   function invalidateSize() {
-    if (map) {
-      map.invalidateSize();
-    }
+    if (map) map.invalidateSize();
   }
 
   return { init, updateCallerLocation, getMap, invalidateSize };

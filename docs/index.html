@@ -5,40 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>消防指令台 - 位置特定システム</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="app" class="operator-view">
-    <!-- ヘッダー -->
     <header id="header">
       <div class="header-left">
-        <h1>🔥 消防指令台 - 位置特定システム</h1>
+        <h1>消防指令台 - 位置特定システム</h1>
       </div>
       <div class="header-right">
         <span id="connection-status" class="status-badge disconnected">未接続</span>
-        <button id="btn-new-session" class="btn btn-primary">新規セッション作成</button>
+        <button id="btn-new-session" class="btn btn-secondary btn-small">リセット</button>
       </div>
     </header>
 
-    <!-- セッション開始前の画面 -->
+    <!-- セッション開始前 -->
     <div id="session-setup" class="session-setup">
       <div class="setup-card">
         <h2>セッションを開始</h2>
-        <p>通報者の位置を特定するためのセッションを作成します。</p>
+        <p>通報者の位置を特定するためのセッションを作成します。<br>
+           作成後、通報者用リンクをスマホに送信してください。</p>
         <button id="btn-create-session" class="btn btn-primary btn-large">
           新規セッション作成
         </button>
-        <div class="divider">または</div>
-        <div class="input-group">
-          <input type="text" id="input-session-id" placeholder="セッションIDを入力">
-          <button id="btn-join-session" class="btn btn-secondary">参加</button>
-        </div>
       </div>
     </div>
 
-    <!-- メインコンテンツ（セッション開始後） -->
+    <!-- メインコンテンツ -->
     <div id="main-content" class="main-content hidden">
-      <!-- セッション情報バー -->
       <div id="session-bar" class="session-bar">
         <div class="session-info">
           <span>セッションID: <strong id="display-session-id"></strong></span>
@@ -51,9 +45,7 @@
         </div>
       </div>
 
-      <!-- 地図とチャットのレイアウト -->
       <div class="content-area">
-        <!-- 地図エリア -->
         <div class="map-container">
           <div id="map"></div>
           <div id="location-info" class="location-info hidden">
@@ -76,14 +68,13 @@
           </div>
         </div>
 
-        <!-- チャットエリア -->
         <div class="chat-container">
           <div class="chat-header">
             <h3>通信記録</h3>
           </div>
           <div id="chat-messages" class="chat-messages"></div>
           <div class="chat-input-area">
-            <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="2"></textarea>
+            <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信)" rows="2"></textarea>
             <button id="btn-send" class="btn btn-primary">送信</button>
           </div>
         </div>
@@ -92,8 +83,9 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/map.js"></script>
-  <script src="/js/chat.js"></script>
-  <script src="/js/operator.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/connection.js"></script>
+  <script src="js/operator.js"></script>
 </body>
 </html>

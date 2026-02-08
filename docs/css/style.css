@@ -74,12 +74,17 @@ header h1 {
   transition: background 0.2s;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: #2980b9;
   color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #2471a3;
 }
 
@@ -88,7 +93,7 @@ header h1 {
   color: #fff;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: #7f8c8d;
 }
 
@@ -134,30 +139,6 @@ header h1 {
 .setup-card .note {
   font-size: 12px;
   color: #999;
-}
-
-.divider {
-  margin: 20px 0;
-  color: #aaa;
-  font-size: 13px;
-}
-
-.input-group {
-  display: flex;
-  gap: 8px;
-}
-
-.input-group input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-}
-
-.input-group input:focus {
-  border-color: #2980b9;
 }
 
 /* ========== Session Bar ========== */
@@ -405,7 +386,6 @@ header h1 {
   border-top: 1px solid #ddd;
 }
 
-/* ========== Responsive ========== */
 /* ========== Caller Marker ========== */
 .caller-marker {
   background: transparent;
