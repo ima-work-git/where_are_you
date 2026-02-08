@@ -39,6 +39,9 @@
     .guide-section h2.test-title {
       border-left-color: #8e44ad;
     }
+    .guide-section h2.flow-title {
+      border-left-color: #e67e22;
+    }
     .guide-section p, .guide-section li {
       font-size: 14px;
       line-height: 1.8;
@@ -81,6 +84,9 @@
     }
     .step-list.test-steps li::before {
       background: #8e44ad;
+    }
+    .step-list.flow-steps li::before {
+      background: #e67e22;
     }
     .example-box {
       background: #f8f9fa;
@@ -132,6 +138,14 @@
       margin: 12px 0;
     }
     .highlight-box p { margin: 0; }
+    .flow-box {
+      background: #fdf2e9;
+      border: 2px solid #e67e22;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 12px 0;
+    }
+    .flow-box p { margin: 0; }
     .back-link {
       display: inline-block;
       margin-bottom: 20px;
@@ -141,6 +155,66 @@
       font-size: 14px;
     }
     .back-link:hover { text-decoration: underline; }
+    .flow-diagram {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 13px;
+      line-height: 2;
+      font-family: monospace;
+    }
+    .flow-diagram .fd-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0;
+    }
+    .flow-diagram .fd-box {
+      background: #2980b9;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .flow-diagram .fd-box.dict { background: #27ae60; }
+    .flow-diagram .fd-box.morph { background: #8e44ad; }
+    .flow-diagram .fd-box.overpass { background: #e67e22; }
+    .flow-diagram .fd-box.nominatim { background: #c0392b; }
+    .flow-diagram .fd-box.score { background: #2c3e50; }
+    .flow-diagram .fd-arrow {
+      color: #999;
+      font-weight: 700;
+    }
+    .score-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .score-table th {
+      background: #2c3e50;
+      color: #fff;
+      padding: 8px 12px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .score-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid #eee;
+      text-align: center;
+    }
+    .score-table tr:nth-child(even) td {
+      background: #f9f9f9;
+    }
+    h3.sub-heading {
+      font-size: 14px;
+      margin: 20px 0 8px;
+      color: #333;
+      padding-left: 4px;
+    }
   </style>
 </head>
 <body>
@@ -172,7 +246,7 @@
       </ol>
     </div>
 
-    <!-- ========== 試験モード（メイン） ========== -->
+    <!-- ========== 試験モード ========== -->
     <div class="guide-section">
       <h2 class="test-title">試験モード（P2P接続なしで動作確認）</h2>
 
@@ -199,28 +273,175 @@
          位置を変えたい場合は再度地図をクリックするだけです。</p>
     </div>
 
-    <!-- ========== チャット検索 ========== -->
+    <!-- ========== 処理フロー ========== -->
     <div class="guide-section">
-      <h2>チャット自動検索の仕組み</h2>
-      <p>チャットに入力されたテキストを解析し、3つの方法で施設を検索します：</p>
+      <h2 class="flow-title">処理フロー全体図</h2>
 
-      <h3 style="font-size:14px; margin:16px 0 8px; color:#333">1. 辞書マッチ（高精度）</h3>
-      <p>「セブン」「マック」「交番」「公園」など約100個の登録キーワードに対して、最適なOSMタグで検索します。</p>
-      <div class="example-box">
-        <code>セブンが見えます</code> <span class="arrow">&rarr;</span> <code>shop=convenience + name~セブン</code> で検索
+      <div class="flow-box">
+        <p>チャットに入力されたテキストが、以下のパイプラインで自動処理されます。<br>
+        新しいメッセージが来ると<b>前回の検索結果は自動クリア</b>され、最新の結果だけが表示されます。</p>
       </div>
 
-      <h3 style="font-size:14px; margin:16px 0 8px; color:#333">2. 固有名詞検索（形態素解析）</h3>
-      <p>辞書にないキーワードは TinySegmenter（形態素解析）で自動抽出し、OSMの<b>全タグを横断検索</b>します。
-         ひらがな・カタカナ・漢字・英数すべてに対応。</p>
-      <div class="example-box">
-        <code>めんぱちが見えます</code> <span class="arrow">&rarr;</span> 「めんぱち」を抽出 <span class="arrow">&rarr;</span> 全タグから検索
+      <div class="flow-diagram">
+        <div class="fd-step">
+          <span class="fd-box">チャット入力</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>「セブンの横にすし屋が見えます。めんぱちの近く」</span>
+        </div>
+        <div class="fd-step" style="margin-left:40px">
+          <span class="fd-arrow">&darr;</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box dict">辞書マッチ</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>「セブン」「すし」がヒット（かな正規化: すし=スシ も同一扱い）</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box morph">形態素解析</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>「めんぱち」を固有名詞として抽出（辞書にない語）</span>
+        </div>
+        <div class="fd-step" style="margin-left:40px">
+          <span class="fd-arrow">&darr;</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box overpass">Overpass API</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>辞書: タグ検索 + name検索 / 固有名詞: 全タグ横断検索</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box nominatim">Nominatim</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>固有名詞の読み仮名 &rarr; 漢字地名を解決（並行実行）</span>
+        </div>
+        <div class="fd-step" style="margin-left:40px">
+          <span class="fd-arrow">&darr;</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box score">スコアリング</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>距離(40%) + テキスト一致度(60%) で総合スコア &rarr; <b>上位5件</b>を表示</span>
+        </div>
       </div>
 
-      <h3 style="font-size:14px; margin:16px 0 8px; color:#333">3. 複数キーワード絞り込み</h3>
+      <ol class="step-list flow-steps">
+        <li><b>テキスト前処理</b> — フィラー除去（「えーっと」「あのー」等）、句読点・空白の正規化</li>
+        <li><b>辞書マッチ</b> — 約100個の登録キーワードとパターン照合。<b>かな正規化</b>（ひらがな/カタカナ/原文の3形式で照合）により「すし」=「スシ」等の表記揺れを吸収</li>
+        <li><b>形態素解析</b> — TinySegmenter でテキストを分割 → ストップワード（助詞・動詞・副詞等200語）除去 → 隣接する非ストップ語を結合して固有名詞を復元</li>
+        <li><b>Overpass API 検索</b> — 辞書マッチ: OSMタグ検索 + ラベル名のname検索（かなバリアント付き）を1クエリで実行。固有名詞: 全タグ横断検索 <code>[~"."~"keyword"]</code></li>
+        <li><b>Nominatim 検索</b>（固有名詞のみ）— OSMのジオコーディングAPIで読み仮名から漢字地名を解決。Overpassと<b>並行実行</b>し、結果をマージ（50m以内の重複は除去）</li>
+        <li><b>スコアリング &amp; ランキング</b> — 全候補に総合スコアを付け、降順ソートして<b>上位5件のみ</b>を地図とランキングパネルに表示</li>
+      </ol>
+    </div>
+
+    <!-- ========== 検索ロジック詳細 ========== -->
+    <div class="guide-section">
+      <h2>検索ロジック詳細</h2>
+
+      <h3 class="sub-heading">1. 辞書マッチ検索（高精度）</h3>
+      <p>「セブン」「マック」「交番」「公園」など約100個の登録キーワードに最適なOSMタグで検索します。</p>
+      <p>Overpass APIに送るクエリは<b>2種類を1つのクエリ内で同時実行</b>します：</p>
+      <ul>
+        <li><b>タグ検索</b> — <code>[amenity=restaurant]["name"~"寿司"]</code> のようにOSMタグで絞り込み</li>
+        <li><b>name検索</b> — ラベル名（例:「寿司屋」）のかなバリアント <code>["name"~"寿司屋|すしや|スシヤ"]</code> でタグ不備のエントリも拾う</li>
+      </ul>
+      <div class="example-box">
+        <span class="label">例: 「すし屋が見える」</span>
+        辞書パターン <code>/寿司|すし|鮨/</code> にマッチ<br>
+        <span class="arrow">&rarr;</span> Overpass: <code>[amenity~"restaurant|fast_food"]["name"~"寿司|すし|鮨|スシ|寿し"]</code><br>
+        <span class="arrow">&rarr;</span> 同時に: <code>["name"~"寿司屋|すしや|スシヤ"]</code> でもname検索
+      </div>
+
+      <h3 class="sub-heading">2. かな正規化（表記揺れ対策）</h3>
+      <p>ひらがな・カタカナをUnicodeコードポイント変換で相互変換し、<b>自動的にすべての表記形で検索</b>します。</p>
+      <table class="tag-table">
+        <tr><th>入力</th><th>自動生成されるバリアント</th><th>結果</th></tr>
+        <tr><td>すし屋</td><td>すし屋 / スシ屋</td><td>同じ検索結果</td></tr>
+        <tr><td>スタバ</td><td>スタバ / すたば</td><td>同じ検索結果</td></tr>
+        <tr><td>カフェ</td><td>カフェ / かふぇ</td><td>同じ検索結果</td></tr>
+        <tr><td>らーめん</td><td>らーめん / ラーメン</td><td>同じ検索結果</td></tr>
+      </table>
+      <p>適用箇所: 辞書パターンマッチ、Overpassクエリ、スコア計算、固有名詞の辞書除外判定</p>
+
+      <h3 class="sub-heading">3. 固有名詞検索（形態素解析 + Nominatim）</h3>
+      <p>辞書にないキーワードは TinySegmenter（形態素解析）で自動抽出し、<b>2つのAPIを並行実行</b>します：</p>
+      <ul>
+        <li><b>Overpass 全タグ横断検索</b> — <code>[~"."~"keyword"]</code> でOSMの全タグ（name, brand, operator, alt_name, 住所等）を正規表現マッチ。かなバリアントも自動生成</li>
+        <li><b>Nominatim ジオコーディング</b> — OSM内部の読み仮名辞書を利用して、<b>ひらがな → 漢字地名</b>を解決</li>
+      </ul>
+      <div class="example-box">
+        <span class="label">例: 「むさしこすぎ駅の近く」</span>
+        形態素解析で「むさしこすぎ駅」を抽出<br>
+        <span class="arrow">&rarr;</span> Overpass: <code>[~"."~"むさしこすぎ駅|ムサシコスギ駅"]</code>（かな読みタグにヒット）<br>
+        <span class="arrow">&rarr;</span> Nominatim: 「むさしこすぎ駅」→ <b>武蔵小杉駅</b> を解決して座標を返す<br>
+        <span class="arrow">&rarr;</span> 両方の結果をマージ（50m以内の重複は自動除去）
+      </div>
+      <div class="example-box">
+        <span class="label">例: 「めんぱちが見えます」</span>
+        形態素解析で「めんぱち」を抽出（辞書にない語）<br>
+        <span class="arrow">&rarr;</span> Overpass: 全タグから <code>"めんぱち|メンパチ"</code> を検索<br>
+        <span class="arrow">&rarr;</span> Nominatim: 「めんぱち」で地名検索（ヒットすれば追加）<br>
+        <span class="arrow">&rarr;</span> name タグに「めんぱち」を含む店舗がヒット
+      </div>
+
+      <h3 class="sub-heading">4. 複数キーワード絞り込み</h3>
       <p>複数施設が発言に含まれると、全カテゴリが近接する地点を自動でハイライトします。</p>
       <div class="example-box">
-        <code>薬局とパン屋がある</code> <span class="arrow">&rarr;</span> 薬局とパン屋の両方が近くにある地点を緑色の円でハイライト
+        <span class="label">例: 「薬局とパン屋がある」</span>
+        「薬局」と「パン屋」をそれぞれ検索<br>
+        <span class="arrow">&rarr;</span> 薬局とパン屋の両方が近くにある地点を<b>緑色の円でハイライト</b>
+      </div>
+    </div>
+
+    <!-- ========== スコアリング ========== -->
+    <div class="guide-section">
+      <h2>スコアリング（上位5件の選出ロジック）</h2>
+
+      <p>検索でヒットした全候補に<b>総合スコア</b>を付け、上位5件だけを表示します。</p>
+
+      <div class="flow-box">
+        <p><b>総合スコア = 近距離ボーナス(0-100) &times; 40% + テキスト一致度(0-100) &times; 60%</b></p>
+      </div>
+
+      <h3 class="sub-heading">近距離ボーナス（40%配分）</h3>
+      <p>通報者の位置からの距離を、GPS誤差円を基準にした段階評価で採点します。</p>
+      <table class="score-table">
+        <tr><th>距離</th><th>スコア</th></tr>
+        <tr><td>誤差円内</td><td>100</td></tr>
+        <tr><td>誤差円 x 1〜2倍</td><td>80</td></tr>
+        <tr><td>誤差円 x 2〜3倍</td><td>60</td></tr>
+        <tr><td>誤差円 x 3〜4倍</td><td>40</td></tr>
+        <tr><td>誤差円 x 4〜5倍</td><td>20</td></tr>
+        <tr><td>誤差円 x 5倍超</td><td>0</td></tr>
+      </table>
+
+      <h3 class="sub-heading">テキスト一致度（60%配分）</h3>
+      <p>検索方法に応じてスコアが変わります。</p>
+
+      <p><b>辞書マッチの場合：</b>ベース85点（タグ+名前で絞り込み済みのため高信頼）</p>
+      <p><b>固有名詞の場合：</b>タグ重要度 &times; マッチ品質</p>
+      <table class="tag-table">
+        <tr><th>タグ</th><th>重要度</th><th>例</th></tr>
+        <tr><td>name</td><td>1.0（最高）</td><td>正式名称に一致</td></tr>
+        <tr><td>brand</td><td>0.85</td><td>ブランド名に一致</td></tr>
+        <tr><td>operator</td><td>0.75</td><td>運営者名に一致</td></tr>
+        <tr><td>alt_name / short_name</td><td>0.7</td><td>別名・略称に一致</td></tr>
+        <tr><td>name:* (言語別)</td><td>0.65</td><td>多言語名に一致</td></tr>
+        <tr><td>その他のタグ</td><td>0.3</td><td>説明文等に一致</td></tr>
+      </table>
+      <table class="tag-table" style="margin-top:8px">
+        <tr><th>マッチ品質</th><th>倍率</th><th>例</th></tr>
+        <tr><td>完全一致</td><td>1.0</td><td>「めんぱち」= name:「めんぱち」</td></tr>
+        <tr><td>前方一致</td><td>0.9</td><td>「めんぱち」= name:「めんぱち 川崎店」の先頭</td></tr>
+        <tr><td>含有一致</td><td>0.5 + 長さ比率 x 0.3</td><td>「めんぱち」が name:「居酒屋めんぱち本店」に含有</td></tr>
+      </table>
+
+      <div class="example-box">
+        <span class="label">具体例</span>
+        検索語: 「めんぱち」 / 候補: name=「居酒屋めんぱち本店」 / 距離: 誤差円内<br>
+        テキスト = name(1.0) &times; 含有(0.5 + 4/9 &times; 0.3 = 0.63) = 63点<br>
+        距離 = 100点<br>
+        <b>総合 = 100 &times; 0.4 + 63 &times; 0.6 = 78点</b>
       </div>
     </div>
 
@@ -234,7 +455,7 @@
         <tr><td>カフェ</td><td>スタバ, ドトール, コメダ, タリーズ, カフェ, 喫茶店</td></tr>
         <tr><td>レストラン</td><td>ガスト, サイゼ, ジョナサン, デニーズ, ファミレス</td></tr>
         <tr><td>居酒屋</td><td>居酒屋, バー, 鳥貴族, 和民, 魚民, 飲み屋</td></tr>
-        <tr><td>ラーメン等</td><td>ラーメン, 中華, 日高屋, 寿司, そば, うどん, 丸亀</td></tr>
+        <tr><td>和食等</td><td>ラーメン, 中華, 寿司, そば, うどん, 丸亀, 焼肉, カレー</td></tr>
         <tr><td>スーパー</td><td>スーパー, イオン, ライフ, マルエツ, 東急ストア</td></tr>
         <tr><td>ドラッグストア</td><td>ドラッグストア, 薬局, マツキヨ, ウエルシア, ツルハ</td></tr>
         <tr><td>公共施設</td><td>交番, 消防署, 郵便局, 役所, 図書館</td></tr>
@@ -245,7 +466,8 @@
         <tr><td>目印</td><td>公園, 神社, 寺, 教会, 橋, 川, 鳥居</td></tr>
       </table>
       <p style="font-size:12px; color:#888; margin-top:8px">
-        上記以外のキーワード（店名・ビル名・施設名等）は形態素解析で自動抽出されOSM全タグ検索されます。
+        上記以外のキーワード（店名・ビル名・マンション名・地名等）は形態素解析で自動抽出され、
+        Overpass全タグ検索 + Nominatimジオコーディングで検索されます。
       </p>
     </div>
 
@@ -253,13 +475,13 @@
     <div class="guide-section">
       <h2>マーカーの見方</h2>
       <ul>
-        <li><b>赤い円（実線）</b> — GPS誤差円（通報者の位置精度）</li>
-        <li><b>黄色い円（破線）</b> — POI検索範囲（誤差 x 5）</li>
-        <li><b>色付きマーカー</b> — 検索でヒットした施設（カテゴリごとに色分け）</li>
-        <li><b>グレーのマーカー</b> — 複数キーワード検索時、交差に含まれない施設</li>
-        <li><b>緑の円（破線）</b> — 複数キーワードが近接する地点のハイライト</li>
+        <li><b style="color:#e74c3c">赤い円（破線）</b> — GPS誤差円（通報者の位置精度）</li>
+        <li><b style="color:#f39c12">黄色い円（破線）</b> — POI検索範囲（誤差 x 5）</li>
+        <li><b style="color:#e67e22">番号付き丸ピン</b> — スコア上位の候補地点（#1=金, #2=銀, #3=銅, #4-5=青系）</li>
+        <li><b style="color:#27ae60">緑の円（破線）</b> — 複数キーワードが近接する地点のハイライト</li>
       </ul>
-      <p>マーカーをクリックすると施設名と<b>OSMタグ情報</b>（amenity, shop, cuisine, 住所等）が表示されます。</p>
+      <p>マーカーをクリックすると<b>スコア内訳</b>（距離/テキスト）、施設名、<b>OSMタグ情報</b>（amenity, shop, cuisine, 住所等）が表示されます。</p>
+      <p>地図左下の<b>候補地点パネル</b>で施設名をクリックすると、その地点に地図を移動できます。</p>
     </div>
 
     <!-- ========== 注意事項 ========== -->
@@ -268,6 +490,8 @@
       <ul>
         <li>施設データは <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> のボランティアデータに基づきます。登録されていない施設はヒットしません。</li>
         <li>都市部は高密度にデータが揃っていますが、地方・山間部は少ない場合があります。</li>
+        <li>Nominatimの読み仮名解決は、OSMデータベース内に読みが登録されている地名・施設名が対象です。</li>
+        <li>新しい検索結果が出ると、前回のマーカーは自動で消去されます。</li>
         <li>P2P接続はPeerJSの公開サーバーを利用しています。ネットワーク環境により接続が不安定な場合があります。</li>
         <li>GPSの精度はスマホの機種・環境（屋内/屋外、天候）に依存します。</li>
       </ul>
