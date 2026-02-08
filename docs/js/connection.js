@@ -3,9 +3,12 @@
  * サーバー不要 - GitHub Pages等の静的ホスティングで動作
  *
  * 切断対策:
+ *  - DataConnection open タイムアウト (10秒)
  *  - Heartbeat (15秒間隔) で接続死活監視
  *  - Peer.disconnected イベントで signaling server 再接続
- *  - DataConnection.close 時に通報者側自動再接続 (最大5回)
+ *  - DataConnection.close 時に通報者側自動再接続 (最大10回)
+ *  - visibilitychange でバックグラウンド復帰時に再接続
+ *  - 複数 STUN サーバーで NAT 越え改善
  */
 const Connection = (() => {
   let peer = null;
@@ -14,59 +17,71 @@ const Connection = (() => {
   let callbacks = {};
   let isConnected = false;
 
+  // ICE サーバー設定 (NAT越え改善)
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
+  ];
+
   // Heartbeat
-  const HEARTBEAT_INTERVAL = 15000; // 15秒
-  const HEARTBEAT_TIMEOUT = 45000;  // 3回分 応答なしでタイムアウト
+  const HEARTBEAT_INTERVAL = 15000;
+  const HEARTBEAT_TIMEOUT = 45000;
   let heartbeatTimer = null;
   let lastPongTime = 0;
   let heartbeatCheckTimer = null;
 
+  // 接続タイムアウト
+  const CONNECT_TIMEOUT = 10000; // 10秒
+  let connectTimeoutTimer = null;
+
   // 再接続
   let operatorPeerId = null;
   let reconnectAttempts = 0;
-  const MAX_RECONNECT = 5;
+  const MAX_RECONNECT = 10;
   let reconnecting = false;
 
   /**
    * 指令台として初期化
-   * @returns {Promise<string>} 生成されたPeer ID (= セッションID)
    */
   function initAsOperator(cb) {
     role = 'operator';
     callbacks = cb;
 
     return new Promise((resolve, reject) => {
-      // 短いIDを生成（通話で伝えやすいように）
       const id = 'fd-' + Math.random().toString(36).slice(2, 8);
 
       peer = new Peer(id, {
-        debug: 0,
+        debug: 1,
+        config: { iceServers: ICE_SERVERS },
       });
 
       peer.on('open', (peerId) => {
+        console.log('Operator peer open:', peerId);
         resolve(peerId);
       });
 
       peer.on('connection', (dataConn) => {
-        // 既存接続があればクリーンアップ
+        console.log('Incoming connection from caller');
         if (conn) {
           stopHeartbeat();
-          conn.close();
+          try { conn.close(); } catch (e) {}
         }
         conn = dataConn;
         setupDataConnection();
       });
 
       peer.on('disconnected', () => {
-        // signaling server との接続が切れた → 再接続を試みる
-        console.warn('PeerJS: signaling server disconnected, reconnecting...');
-        if (peer && !peer.destroyed) {
-          peer.reconnect();
+        console.warn('Operator: signaling server disconnected');
+        if (callbacks.onSystemMessage) {
+          callbacks.onSystemMessage('シグナリングサーバーと再接続中...');
         }
+        reconnectPeer();
       });
 
       peer.on('error', (err) => {
-        console.error('PeerJS error:', err);
+        console.error('Operator PeerJS error:', err.type, err);
         if (err.type === 'unavailable-id') {
           peer.destroy();
           initAsOperator(cb).then(resolve).catch(reject);
@@ -74,12 +89,14 @@ const Connection = (() => {
           if (callbacks.onError) callbacks.onError(err);
         }
       });
+
+      // バックグラウンド復帰
+      setupVisibilityHandler();
     });
   }
 
   /**
    * 通報者として接続
-   * @param {string} targetPeerId 指令台のPeer ID
    */
   function initAsCaller(targetPeerId, cb) {
     role = 'caller';
@@ -87,37 +104,84 @@ const Connection = (() => {
     operatorPeerId = targetPeerId;
     reconnectAttempts = 0;
 
+    return createCallerPeer();
+  }
+
+  /**
+   * 通報者: Peer オブジェクトを作成して指令台に接続
+   */
+  function createCallerPeer() {
     return new Promise((resolve, reject) => {
+      // 既存のpeerがあればクリーンアップ
+      if (peer) {
+        try { peer.destroy(); } catch (e) {}
+        peer = null;
+      }
+
       peer = new Peer(null, {
-        debug: 0,
+        debug: 1,
+        config: { iceServers: ICE_SERVERS },
       });
+
+      let resolved = false;
 
       peer.on('open', () => {
+        console.log('Caller peer open, connecting to:', operatorPeerId);
         connectToOperator();
-        resolve();
-      });
-
-      peer.on('disconnected', () => {
-        console.warn('PeerJS: signaling server disconnected, reconnecting...');
-        if (peer && !peer.destroyed) {
-          peer.reconnect();
+        if (!resolved) {
+          resolved = true;
+          resolve();
         }
       });
 
+      peer.on('disconnected', () => {
+        console.warn('Caller: signaling server disconnected');
+        reconnectPeer();
+      });
+
       peer.on('error', (err) => {
-        console.error('PeerJS error:', err);
+        console.error('Caller PeerJS error:', err.type, err);
+
         if (err.type === 'peer-unavailable') {
-          // 指令台が見つからない - 再接続中なら自動リトライ
-          if (reconnecting) {
+          // 指令台が見つからない
+          if (reconnecting || reconnectAttempts > 0) {
+            // 再接続中 → リトライ
             scheduleReconnect();
           } else {
             if (callbacks.onError) callbacks.onError(err);
           }
+        } else if (err.type === 'network' || err.type === 'server-error' ||
+                   err.type === 'socket-error' || err.type === 'socket-closed') {
+          // ネットワーク系エラー → 再接続
+          triggerReconnect('peer-error: ' + err.type);
         } else {
           if (callbacks.onError) callbacks.onError(err);
         }
-        if (!reconnecting) reject(err);
+
+        if (!resolved) {
+          resolved = true;
+          // 初回接続時のエラーでもresolveして画面遷移は許可、
+          // 接続自体は再接続で回復を試みる
+          if (err.type === 'peer-unavailable') {
+            reject(err);
+          } else {
+            resolve(); // 画面は表示してバックグラウンドで再接続
+            triggerReconnect('initial-error: ' + err.type);
+          }
+        }
       });
+
+      // Peer自体のopenタイムアウト
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.error('Peer open timeout');
+          resolve(); // 画面は表示
+          triggerReconnect('peer-open-timeout');
+        }
+      }, CONNECT_TIMEOUT);
+
+      setupVisibilityHandler();
     });
   }
 
@@ -125,16 +189,50 @@ const Connection = (() => {
    * 通報者側: 指令台への DataConnection を確立
    */
   function connectToOperator() {
-    conn = peer.connect(operatorPeerId, { reliable: true });
+    clearConnectTimeout();
+
+    if (!peer || peer.destroyed || peer.disconnected) {
+      console.warn('Peer not ready, scheduling reconnect');
+      triggerReconnect('peer-not-ready');
+      return;
+    }
+
+    try {
+      conn = peer.connect(operatorPeerId, { reliable: true });
+    } catch (e) {
+      console.error('peer.connect() failed:', e);
+      triggerReconnect('connect-exception');
+      return;
+    }
+
+    // DataConnection open タイムアウト
+    connectTimeoutTimer = setTimeout(() => {
+      if (!isConnected) {
+        console.warn('DataConnection open timeout');
+        try { if (conn) conn.close(); } catch (e) {}
+        triggerReconnect('data-connection-timeout');
+      }
+    }, CONNECT_TIMEOUT);
+
     setupDataConnection();
+  }
+
+  function clearConnectTimeout() {
+    if (connectTimeoutTimer) {
+      clearTimeout(connectTimeoutTimer);
+      connectTimeoutTimer = null;
+    }
   }
 
   function setupDataConnection() {
     conn.on('open', () => {
+      console.log('DataConnection opened');
+      clearConnectTimeout();
       isConnected = true;
       reconnectAttempts = 0;
       reconnecting = false;
       lastPongTime = Date.now();
+
       if (callbacks.onConnectionChange) callbacks.onConnectionChange(true);
 
       if (callbacks.onSystemMessage) {
@@ -150,61 +248,120 @@ const Connection = (() => {
     });
 
     conn.on('close', () => {
+      console.log('DataConnection closed');
       handleDisconnect('close');
     });
 
     conn.on('error', (err) => {
       console.error('DataConnection error:', err);
-      handleDisconnect('error');
+      handleDisconnect('dc-error');
     });
+  }
+
+  /**
+   * 再接続をトリガー（isConnectedがfalseでも動作する版）
+   */
+  function triggerReconnect(reason) {
+    if (role !== 'caller') return;
+    if (reconnecting && reconnectAttempts > 0) return; // 既にスケジュール済み
+
+    console.log('triggerReconnect:', reason);
+    isConnected = false;
+    stopHeartbeat();
+    clearConnectTimeout();
+    reconnecting = true;
+
+    if (callbacks.onConnectionChange) callbacks.onConnectionChange(false);
+
+    if (reconnectAttempts < MAX_RECONNECT) {
+      if (callbacks.onSystemMessage) {
+        callbacks.onSystemMessage(`接続エラー (${reason})。再接続中... (${reconnectAttempts + 1}/${MAX_RECONNECT})`);
+      }
+      scheduleReconnect();
+    } else {
+      if (callbacks.onSystemMessage) {
+        callbacks.onSystemMessage('再接続に失敗しました。ページを再読み込みしてください。');
+      }
+    }
   }
 
   /**
    * 切断処理 & 通報者側自動再接続
    */
   function handleDisconnect(reason) {
-    if (!isConnected && !reconnecting) return; // 重複呼び出し防止
-
+    const wasConnected = isConnected;
     isConnected = false;
     stopHeartbeat();
+    clearConnectTimeout();
 
-    if (callbacks.onConnectionChange) callbacks.onConnectionChange(false);
+    if (wasConnected) {
+      if (callbacks.onConnectionChange) callbacks.onConnectionChange(false);
+    }
 
     if (role === 'caller' && peer && !peer.destroyed && reconnectAttempts < MAX_RECONNECT) {
-      // 通報者側: 自動再接続
       reconnecting = true;
       if (callbacks.onSystemMessage) {
-        callbacks.onSystemMessage(`指令台との接続が切断されました。再接続を試みています... (${reconnectAttempts + 1}/${MAX_RECONNECT})`);
+        callbacks.onSystemMessage(`接続が切断されました。再接続中... (${reconnectAttempts + 1}/${MAX_RECONNECT})`);
       }
       scheduleReconnect();
-    } else {
-      const who = role === 'operator' ? '通報者' : '指令台';
+    } else if (role === 'operator') {
       if (callbacks.onSystemMessage) {
-        callbacks.onSystemMessage(`${who}が切断されました`);
+        callbacks.onSystemMessage('通報者が切断されました');
+      }
+    } else if (reconnectAttempts >= MAX_RECONNECT) {
+      if (callbacks.onSystemMessage) {
+        callbacks.onSystemMessage('再接続に失敗しました。ページを再読み込みしてください。');
       }
     }
   }
 
   /**
-   * 再接続のスケジュール（指数バックオフ）
+   * Peer の signaling server 再接続
+   */
+  function reconnectPeer() {
+    if (!peer || peer.destroyed) return;
+    try {
+      peer.reconnect();
+    } catch (e) {
+      console.error('peer.reconnect() failed:', e);
+    }
+  }
+
+  /**
+   * 再接続スケジュール（指数バックオフ、最大15秒）
    */
   function scheduleReconnect() {
-    const delay = Math.min(2000 * Math.pow(2, reconnectAttempts), 30000);
+    const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 15000);
     reconnectAttempts++;
 
+    console.log(`Reconnect scheduled in ${Math.round(delay)}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT})`);
+
     setTimeout(() => {
-      if (!peer || peer.destroyed) return;
-      if (isConnected) return; // 既に再接続済み
+      if (isConnected) return;
 
-      console.log(`Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT}...`);
+      if (!peer || peer.destroyed) {
+        // Peer自体が壊れた → 新しく作り直す
+        console.log('Peer destroyed, creating new peer...');
+        createCallerPeer().catch(e => {
+          console.error('createCallerPeer failed:', e);
+          if (reconnectAttempts < MAX_RECONNECT) {
+            scheduleReconnect();
+          }
+        });
+        return;
+      }
 
-      // Peer自体がdisconnectedなら再接続
       if (peer.disconnected) {
-        peer.reconnect();
-        // reconnect後に少し待ってからconnect
+        // signaling server に再接続
+        console.log('Peer disconnected, reconnecting to signaling...');
+        reconnectPeer();
         setTimeout(() => {
-          if (!isConnected) connectToOperator();
-        }, 1000);
+          if (!isConnected && peer && !peer.destroyed && !peer.disconnected) {
+            connectToOperator();
+          } else if (!isConnected && reconnectAttempts < MAX_RECONNECT) {
+            scheduleReconnect();
+          }
+        }, 2000);
       } else {
         connectToOperator();
       }
@@ -221,7 +378,6 @@ const Connection = (() => {
         try {
           conn.send({ type: '_ping', ts: Date.now() });
         } catch (e) {
-          // 送信失敗 → 切断扱い
           handleDisconnect('heartbeat-send-fail');
         }
       }
@@ -229,8 +385,8 @@ const Connection = (() => {
 
     heartbeatCheckTimer = setInterval(() => {
       if (isConnected && Date.now() - lastPongTime > HEARTBEAT_TIMEOUT) {
-        console.warn('Heartbeat timeout - connection seems dead');
-        if (conn) conn.close();
+        console.warn('Heartbeat timeout');
+        try { if (conn) conn.close(); } catch (e) {}
         handleDisconnect('heartbeat-timeout');
       }
     }, HEARTBEAT_INTERVAL);
@@ -241,11 +397,38 @@ const Connection = (() => {
     if (heartbeatCheckTimer) { clearInterval(heartbeatCheckTimer); heartbeatCheckTimer = null; }
   }
 
+  // ========== バックグラウンド復帰 ==========
+  let visibilityHandlerSet = false;
+
+  function setupVisibilityHandler() {
+    if (visibilityHandlerSet) return;
+    visibilityHandlerSet = true;
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible, checking connection...');
+
+        // signaling server 再接続
+        if (peer && !peer.destroyed && peer.disconnected) {
+          console.log('Reconnecting to signaling server...');
+          reconnectPeer();
+        }
+
+        // DataConnection が切れていたら再接続
+        if (!isConnected && role === 'caller' && !reconnecting) {
+          console.log('Connection lost while in background, reconnecting...');
+          reconnectAttempts = 0; // バックグラウンド復帰はカウントリセット
+          triggerReconnect('visibility-resume');
+        }
+      }
+    });
+  }
+
+  // ========== メッセージ処理 ==========
   function handleIncoming(data) {
-    // Heartbeat 処理
     if (data.type === '_ping') {
       if (conn && isConnected) {
-        conn.send({ type: '_pong', ts: Date.now() });
+        try { conn.send({ type: '_pong', ts: Date.now() }); } catch (e) {}
       }
       return;
     }
@@ -264,9 +447,6 @@ const Connection = (() => {
     }
   }
 
-  /**
-   * チャットメッセージ送信
-   */
   function sendChat(text) {
     if (!conn || !isConnected) return;
     const msg = {
@@ -280,25 +460,20 @@ const Connection = (() => {
     if (callbacks.onChat) callbacks.onChat(msg);
   }
 
-  /**
-   * 位置情報送信
-   */
   function sendLocation(lat, lng, accuracy) {
     if (!conn || !isConnected) return;
-    const loc = {
+    conn.send({
       type: 'location',
-      lat,
-      lng,
-      accuracy,
+      lat, lng, accuracy,
       timestamp: Date.now(),
-    };
-    conn.send(loc);
+    });
   }
 
   function destroy() {
     stopHeartbeat();
-    if (conn) conn.close();
-    if (peer) peer.destroy();
+    clearConnectTimeout();
+    try { if (conn) conn.close(); } catch (e) {}
+    try { if (peer) peer.destroy(); } catch (e) {}
     conn = null;
     peer = null;
     isConnected = false;
