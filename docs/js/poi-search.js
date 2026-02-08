@@ -150,9 +150,7 @@ const POISearch = (() => {
   ];
 
   // ========== テキストからキーワード抽出 ==========
-  // フィラー語・助詞・動詞語尾を除去するパターン
   const FILLER_RE = /えーっと|あのー?|ええと|うーん|そのー?|なんか|あー+|えー+|うー+|っと/g;
-  const NOISE_RE = /(?:が|は|の|を|に|で|と|も|へ|から|まで|より|って|けど|だけど|ので|のに|ので|だから|(?:見|み)え(?:る|ます|た)|(?:あ|有)り?(?:ます|ました)?|い(?:ます|ました)|です|ました|ている|てる|近く|(?:の)?(?:前|横|隣|向かい|裏|奥|手前|そば|となり))\b/g;
 
   function extractKeywords(text) {
     const cleaned = text
@@ -169,36 +167,96 @@ const POISearch = (() => {
     return matches;
   }
 
+  // ========== 形態素解析ベースの固有名詞抽出 ==========
+  // TinySegmenter でテキストを分割 → ストップワード除去 → 隣接する非ストップ語を結合
+  const segmenter = (typeof TinySegmenter !== 'undefined') ? new TinySegmenter() : null;
+
+  // ストップワード（助詞・助動詞・動詞・形容詞・副詞・フィラー・位置語等）
+  const STOP_WORDS = new Set([
+    // 助詞
+    'が', 'は', 'の', 'を', 'に', 'で', 'と', 'も', 'へ', 'や', 'か', 'な', 'ね', 'よ', 'わ', 'さ',
+    'から', 'まで', 'より', 'って', 'けど', 'けれど', 'ので', 'のに', 'だから', 'だけど',
+    'ば', 'たら', 'なら', 'だけ', 'しか', 'ばかり', 'ほど', 'くらい', 'ぐらい', 'など', 'とか',
+    // 助動詞・語尾
+    'です', 'ます', 'ました', 'ません', 'でした', 'た', 'だ', 'ない', 'なかった',
+    'れる', 'られる', 'せる', 'させる', 'よう', 'そう', 'らしい', 'みたい',
+    // 動詞（基本形・活用形）
+    'ある', 'いる', 'する', 'なる', 'できる', 'くる', 'いく', 'おく', 'みる',
+    'あり', 'い', 'し', 'なり', 'でき', 'き', 'いき',
+    'あっ', 'いっ', 'しっ', 'なっ',
+    '見える', '見え', '見えます', '見えた', 'みえる', 'みえ',
+    '聞こえる', '聞こえ', 'きこえる',
+    'あります', 'ありました', 'あった',
+    'います', 'いました', 'いた',
+    'します', 'しました', 'した',
+    'ている', 'てる', 'でいる', 'てい', 'ちゃう',
+    // 指示語
+    'これ', 'それ', 'あれ', 'どれ',
+    'この', 'その', 'あの', 'どの',
+    'ここ', 'そこ', 'あそこ', 'どこ',
+    'こう', 'そう', 'ああ', 'どう',
+    'こちら', 'そちら', 'あちら', 'どちら',
+    // 副詞・形容詞
+    'とても', 'すごく', 'すごい', 'ちょっと', '少し', 'たぶん', 'たしか',
+    'もう', 'まだ', 'けっこう', 'かなり', 'だいたい', 'ほとんど', 'あまり',
+    '大きい', '大きな', '小さい', '小さな', '多い', '少ない', '新しい', '古い',
+    // 位置・方向
+    '前', '横', '隣', '向かい', '裏', '奥', '手前', 'そば', 'となり',
+    '近く', 'あたり', '辺り', '向こう', '先', '右', '左', '上', '下', '中', '外',
+    'まえ', 'よこ', 'うしろ', 'むこう', 'さき', 'みぎ', 'ひだり', 'うえ', 'した', 'なか', 'そと',
+    // フィラー
+    'えーと', 'えー', 'あの', 'あのー', 'えーっと', 'ええと', 'うーん', 'なんか', 'そのー',
+    'あー', 'うー', 'えっと', 'まあ', 'んー', 'っと',
+    // 接続詞
+    'そして', 'それから', 'でも', 'しかし', 'だけど', 'ただ', 'また', 'あと',
+    'それで', 'だから', 'なので',
+    // その他
+    'こと', 'もの', 'ところ', 'とこ', 'ほう', 'ため', 'つもり', 'はず',
+    '今', 'いま', 'さっき', 'ここ', 'それ',
+    // 句読点・記号
+    '、', '。', '！', '？', '!', '?', ',', '.', '…', '・',
+  ]);
+
   /**
-   * 辞書に無い固有名詞を抽出（フォールバック用）
-   * カタカナ2文字以上、漢字2文字以上を候補として返す
+   * TinySegmenter + ストップワードで固有名詞を抽出
+   * 1. テキストを形態素分割
+   * 2. ストップワードを除去
+   * 3. 隣接する非ストップ語を結合（分割された固有名詞を復元）
+   * 4. 辞書マッチ済みを除外
    */
   function extractProperNouns(text) {
-    const cleaned = text
-      .replace(FILLER_RE, '')
-      .replace(NOISE_RE, '')
-      .replace(/[、。！？!?,.\s]+/g, ' ')
-      .trim();
+    const cleaned = text.replace(FILLER_RE, '').trim();
 
+    let segments;
+    if (segmenter) {
+      segments = segmenter.segment(cleaned);
+    } else {
+      // TinySegmenter未ロード時: 簡易分割（句読点・空白で分割）
+      segments = cleaned.split(/[、。！？!?,.\s]+/).filter(Boolean);
+    }
+
+    // ストップワード判定して隣接する非ストップ語を結合
     const candidates = [];
+    let current = '';
 
-    // カタカナ語 (2文字以上、・ー含む)
-    const katakanaRe = /[ァ-ヴー・]{2,}/g;
-    let m;
-    while ((m = katakanaRe.exec(cleaned)) !== null) {
-      candidates.push(m[0]);
+    for (const seg of segments) {
+      const trimmed = seg.trim();
+      if (!trimmed) continue;
+
+      if (isStopWord(trimmed)) {
+        // ストップワード → 溜まっていた非ストップ語を候補に追加
+        if (current.length >= 2) {
+          candidates.push(current);
+        }
+        current = '';
+      } else {
+        // 非ストップワード → 結合
+        current += trimmed;
+      }
     }
-
-    // 漢字語 (2文字以上)
-    const kanjiRe = /[\u4e00-\u9fff]{2,}/g;
-    while ((m = kanjiRe.exec(cleaned)) !== null) {
-      candidates.push(m[0]);
-    }
-
-    // 英数字 (2文字以上)
-    const alphaRe = /[A-Za-z0-9]{2,}/g;
-    while ((m = alphaRe.exec(cleaned)) !== null) {
-      candidates.push(m[0]);
+    // 末尾の残り
+    if (current.length >= 2) {
+      candidates.push(current);
     }
 
     // 辞書にマッチ済みのものは除外
@@ -210,14 +268,26 @@ const POISearch = (() => {
     });
   }
 
+  function isStopWord(word) {
+    if (STOP_WORDS.has(word)) return true;
+    // 1文字のひらがな・句読点はストップワード扱い
+    if (word.length === 1 && /[ぁ-ん、。！？!?,.\s]/.test(word)) return true;
+    return false;
+  }
+
   // ========== 固有名詞でOSM名前検索 ==========
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   async function searchByName(lat, lng, radiusMeters, name) {
+    const safeName = escapeRegex(name);
     const query = `
       [out:json][timeout:10];
       (
-        node["name"~"${name}",i](around:${radiusMeters},${lat},${lng});
-        way["name"~"${name}",i](around:${radiusMeters},${lat},${lng});
-        relation["name"~"${name}",i](around:${radiusMeters},${lat},${lng});
+        node["name"~"${safeName}",i](around:${radiusMeters},${lat},${lng});
+        way["name"~"${safeName}",i](around:${radiusMeters},${lat},${lng});
+        relation["name"~"${safeName}",i](around:${radiusMeters},${lat},${lng});
       );
       out center body;
     `;
