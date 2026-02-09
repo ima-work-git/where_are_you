@@ -416,10 +416,9 @@
       </table>
 
       <h3 class="sub-heading">テキスト一致度（60%配分）</h3>
-      <p>検索方法に応じてスコアが変わります。</p>
+      <p>辞書マッチ・固有名詞とも<b>同一ロジック</b>でスコアリングします。<br>
+         POIのタグ値に検索ラベルがどれだけ一致するかを「タグ重要度 &times; マッチ品質」で評価します。</p>
 
-      <p><b>辞書マッチの場合：</b>ベース85点（タグ+名前で絞り込み済みのため高信頼）</p>
-      <p><b>固有名詞の場合：</b>タグ重要度 &times; マッチ品質</p>
       <table class="tag-table">
         <tr><th>タグ</th><th>重要度</th><th>例</th></tr>
         <tr><td>name</td><td>1.0（最高）</td><td>正式名称に一致</td></tr>
@@ -436,8 +435,26 @@
         <tr><td>含有一致</td><td>0.5 + 長さ比率 x 0.3</td><td>「めんぱち」が name:「居酒屋めんぱち本店」に含有</td></tr>
       </table>
 
+      <p style="margin-top:12px"><b>辞書マッチでテキスト一致なしの場合：</b>50点<br>
+         カテゴリタグ（shop=convenience等）のみでヒットし、POI名にラベルを含まない場合。<br>
+         例: 「コンビニ」で検索 → shop=convenience のPOIがヒットしたが、名前は「セブン-イレブン」</p>
+
       <div class="example-box">
-        <span class="label">具体例</span>
+        <span class="label">具体例 1: 辞書マッチ（ブランド名一致）</span>
+        検索語: 「セブンイレブン」(辞書) / 候補: name=「セブン-イレブン 武蔵小杉店」 / 距離: 誤差円内<br>
+        テキスト = name(1.0) &times; 前方一致(0.9) = 90点<br>
+        距離 = 100点<br>
+        <b>総合 = 100 &times; 0.4 + 90 &times; 0.6 = 94点</b>
+      </div>
+      <div class="example-box">
+        <span class="label">具体例 2: 辞書マッチ（カテゴリのみ）</span>
+        検索語: 「コンビニ」(辞書) / 候補: name=「ファミリーマート」(shop=convenience) / 距離: 誤差円 x2<br>
+        テキスト = 50点（POI名に「コンビニ」を含まないがカテゴリタグ一致）<br>
+        距離 = 80点<br>
+        <b>総合 = 80 &times; 0.4 + 50 &times; 0.6 = 62点</b>
+      </div>
+      <div class="example-box">
+        <span class="label">具体例 3: 固有名詞</span>
         検索語: 「めんぱち」 / 候補: name=「居酒屋めんぱち本店」 / 距離: 誤差円内<br>
         テキスト = name(1.0) &times; 含有(0.5 + 4/9 &times; 0.3 = 0.63) = 63点<br>
         距離 = 100点<br>

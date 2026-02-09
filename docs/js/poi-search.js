@@ -487,10 +487,7 @@ const POISearch = (() => {
   /**
    * テキストマッチスコア (0-100, ×60%)
    *
-   * ■ 辞書マッチ (searchKeyword が引用符なし):
-   *   tag+name フィルタ済み → 高信頼ベース 85点
-   *
-   * ■ 固有名詞検索 (searchKeyword が "keyword" 形式):
+   * 辞書マッチ・固有名詞とも同一ロジック:
    *   タグ重要度 × マッチ品質
    *
    *   タグ重要度:
@@ -501,6 +498,10 @@ const POISearch = (() => {
    *     完全一致=1.0        "めんぱち" == "めんぱち"
    *     前方一致=0.9        "めんぱち" found at start of "めんぱち 川崎店"
    *     含有=0.5+比率×0.3   "めんぱち" in "居酒屋めんぱち本店" → 比率=4/9≒0.44 → 0.63
+   *
+   *   辞書マッチでテキスト一致なし（カテゴリタグのみヒット）→ 50点
+   *     例: 「コンビニ」→ [shop=convenience] でヒットしたが
+   *         POI名に「コンビニ」を含まない場合
    */
   const TAG_WEIGHTS = {
     name: 1.0, brand: 0.85, operator: 0.75,
@@ -508,11 +509,7 @@ const POISearch = (() => {
   };
 
   function calcTextScore(poi, searchKeyword) {
-    // 辞書マッチ → ベース85点
-    if (!searchKeyword.startsWith('"')) {
-      return 85;
-    }
-
+    const isDictMatch = !searchKeyword.startsWith('"');
     const keyword = searchKeyword.replace(/"/g, '');
     if (!poi.tags || !keyword) return 10;
 
@@ -545,6 +542,12 @@ const POISearch = (() => {
       }
 
       best = Math.max(best, w * q * 100);
+    }
+
+    // 辞書マッチでテキスト一致なし = カテゴリタグのみでヒット
+    // 例: 「コンビニ」→ shop=convenience でヒットしたがPOI名に「コンビニ」を含まない
+    if (isDictMatch && best === 0) {
+      return 50;
     }
 
     return Math.round(best) || 10;
