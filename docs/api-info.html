@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用APIについて - 消防指令台 位置特定システム</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f5f5f5; }
+    .api-wrapper {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+    }
+    .api-wrapper h1 {
+      font-size: 22px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .api-wrapper .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .api-section {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .api-section h2 {
+      font-size: 17px;
+      color: #1a1a2e;
+      border-left: 4px solid #2980b9;
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+    .api-section p, .api-section li {
+      font-size: 14px;
+      line-height: 1.8;
+      color: #444;
+    }
+    .api-section ul {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .api-section li {
+      margin-bottom: 6px;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #2980b9;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    /* 全体構成図 */
+    .arch-diagram {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+      font-size: 13px;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .arch-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+    .arch-box {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      color: #fff;
+    }
+    .arch-box.local   { background: #2c3e50; }
+    .arch-box.map     { background: #27ae60; }
+    .arch-box.search  { background: #e67e22; }
+    .arch-box.geo     { background: #c0392b; }
+    .arch-box.nlp     { background: #2980b9; }
+    .arch-arrow { color: #999; font-weight: 700; font-size: 16px; }
+    .arch-label { font-size: 12px; color: #888; }
+
+    /* API詳細カード */
+    .api-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      margin: 16px 0;
+      overflow: hidden;
+    }
+    .api-card-header {
+      padding: 12px 16px;
+      font-weight: 700;
+      font-size: 15px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .api-card-header .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.25);
+    }
+    .api-card-body {
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #444;
+    }
+    .api-card-body dt {
+      font-weight: 700;
+      color: #333;
+      margin-top: 10px;
+    }
+    .api-card-body dt:first-child { margin-top: 0; }
+    .api-card-body dd {
+      margin: 2px 0 0 16px;
+    }
+    .api-card-body code {
+      background: #eee;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .api-card-body .endpoint {
+      background: #1a1a2e;
+      color: #7ec8e3;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+      margin: 8px 0;
+      word-break: break-all;
+    }
+    .example-query {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #333;
+    }
+    .cost-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .cost-badge.free { background: #d5f5e3; color: #1e8449; }
+    .limit-note {
+      background: #fef9e7;
+      border-left: 3px solid #f39c12;
+      padding: 10px 14px;
+      margin: 10px 0;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .summary-table th {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .summary-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+    }
+    .summary-table tr:nth-child(even) td {
+      background: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <div class="api-wrapper">
+    <a href="index.html" class="back-link">&larr; トップに戻る</a>
+
+    <h1>利用APIについて</h1>
+    <p class="subtitle">本システムが利用する外部API・ライブラリ・サービスの一覧と詳細</p>
+
+    <!-- ========== 全体構成 ========== -->
+    <div class="api-section">
+      <h2>全体構成</h2>
+      <p>本システムはすべて<b>無料のオープンソース技術</b>で構成されています。
+         サーバーサイドの独自バックエンドは不要で、ブラウザから直接各APIを呼び出します。</p>
+
+      <div class="arch-diagram">
+        <div class="arch-row">
+          <span class="arch-box local">ブラウザ（指令台/通報者）</span>
+        </div>
+        <div class="arch-row" style="margin-left: 30px">
+          <span class="arch-arrow">&darr;</span>
+          <span class="arch-label">利用するサービス</span>
+        </div>
+        <div class="arch-row" style="margin-left: 30px; gap: 8px">
+          <span class="arch-box map">OpenStreetMap タイル</span>
+          <span class="arch-label">地図描画</span>
+        </div>
+        <div class="arch-row" style="margin-left: 30px; gap: 8px">
+          <span class="arch-box search">Overpass API</span>
+          <span class="arch-label">施設検索（POI）</span>
+        </div>
+        <div class="arch-row" style="margin-left: 30px; gap: 8px">
+          <span class="arch-box geo">Nominatim API</span>
+          <span class="arch-label">地名検索（ジオコーディング）</span>
+        </div>
+        <div class="arch-row" style="margin-left: 30px">
+          <span class="arch-arrow">&darr;</span>
+          <span class="arch-label">フロントエンドライブラリ（CDN配信）</span>
+        </div>
+        <div class="arch-row" style="margin-left: 30px; gap: 8px">
+          <span class="arch-box map">Leaflet</span>
+          <span class="arch-box nlp">TinySegmenter</span>
+        </div>
+      </div>
+
+      <table class="summary-table">
+        <tr>
+          <th>分類</th><th>サービス / ライブラリ</th><th>用途</th><th>費用</th>
+        </tr>
+        <tr>
+          <td>地図描画</td>
+          <td>OpenStreetMap タイルサーバー</td>
+          <td>地図画像の配信</td>
+          <td><span class="cost-badge free">無料</span></td>
+        </tr>
+        <tr>
+          <td>施設検索</td>
+          <td>Overpass API</td>
+          <td>OSMデータからPOI検索</td>
+          <td><span class="cost-badge free">無料</span></td>
+        </tr>
+        <tr>
+          <td>地名検索</td>
+          <td>Nominatim API</td>
+          <td>読み仮名→漢字地名の解決</td>
+          <td><span class="cost-badge free">無料</span></td>
+        </tr>
+        <tr>
+          <td>形態素解析</td>
+          <td>TinySegmenter</td>
+          <td>日本語テキストの分割</td>
+          <td><span class="cost-badge free">無料</span></td>
+        </tr>
+        <tr>
+          <td>地図ライブラリ</td>
+          <td>Leaflet</td>
+          <td>地図UI制御（マーカー・円等）</td>
+          <td><span class="cost-badge free">無料</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ========== Overpass API ========== -->
+    <div class="api-section">
+      <h2>Overpass API（施設検索）</h2>
+      <div class="api-card">
+        <div class="api-card-header" style="background:#e67e22">
+          Overpass API <span class="badge">REST / POST</span> <span class="badge">無料</span>
+        </div>
+        <div class="api-card-body">
+          <dt>概要</dt>
+          <dd>OpenStreetMap のデータベースに対して、独自のクエリ言語(Overpass QL)で施設やノードを検索するAPI。
+              OSM上のすべてのタグ情報（名前・種別・住所等）を対象に検索できる。</dd>
+
+          <dt>エンドポイント</dt>
+          <dd><div class="endpoint">POST https://overpass-api.de/api/interpreter</div></dd>
+
+          <dt>本システムでの使い方</dt>
+          <dd>
+            <b>1. 辞書マッチ検索</b> — OSMタグ（amenity, shop等）で施設を種別検索 + ラベル名でname検索<br>
+            <b>2. 固有名詞検索</b> — <code>[~"."~"keyword"]</code> で全タグの値を正規表現マッチ
+          </dd>
+
+          <dt>クエリ例: 辞書マッチ（セブンイレブン）</dt>
+          <dd>
+            <div class="example-query">[out:json][timeout:10];
+(
+  node[shop=convenience]["name"~"セブン"](around:250,35.57,139.66);
+  way[shop=convenience]["name"~"セブン"](around:250,35.57,139.66);
+  node["name"~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
+  way["name"~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
+);
+out center body;</div>
+          </dd>
+
+          <dt>クエリ例: 固有名詞（めんぱち）</dt>
+          <dd>
+            <div class="example-query">[out:json][timeout:10];
+(
+  node[~"."~"めんぱち|メンパチ",i](around:250,35.57,139.66);
+  way[~"."~"めんぱち|メンパチ",i](around:250,35.57,139.66);
+  relation[~"."~"めんぱち|メンパチ",i](around:250,35.57,139.66);
+);
+out center body;</div>
+          </dd>
+
+          <dt>レスポンス形式</dt>
+          <dd>JSON (<code>elements</code> 配列) — 各要素に <code>id</code>, <code>lat</code>, <code>lon</code>, <code>tags</code> (name, amenity, shop等) を含む</dd>
+
+          <div class="limit-note">
+            <b>レート制限:</b> 公開サーバーのため、過剰なリクエストは制限される場合があります。
+            本システムではチャットメッセージ単位(1メッセージ=1〜3クエリ)で利用するため、通常は問題ありません。
+            タイムアウトは10秒に設定。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== Nominatim API ========== -->
+    <div class="api-section">
+      <h2>Nominatim API（地名検索・ジオコーディング）</h2>
+      <div class="api-card">
+        <div class="api-card-header" style="background:#c0392b">
+          Nominatim API <span class="badge">REST / GET</span> <span class="badge">無料</span>
+        </div>
+        <div class="api-card-body">
+          <dt>概要</dt>
+          <dd>OpenStreetMap のジオコーディング（地名検索）サービス。
+              テキストから地名・住所・施設名を解決し、緯度経度を返す。
+              内部に日本語の読み仮名辞書を保有しており、<b>ひらがな入力から漢字地名を解決</b>できる。</dd>
+
+          <dt>エンドポイント</dt>
+          <dd><div class="endpoint">GET https://nominatim.openstreetmap.org/search?q=...&amp;format=json</div></dd>
+
+          <dt>本システムでの使い方</dt>
+          <dd>
+            固有名詞検索時に Overpass API と<b>並行実行</b>。
+            Overpassがかな表記のタグ検索を行う一方、Nominatimは読み仮名→漢字地名の解決を担当。
+            <ul>
+              <li><code>むさしこすぎ</code> → <b>武蔵小杉</b> を解決して座標を返す</li>
+              <li><code>しながわ</code> → <b>品川</b> を解決して座標を返す</li>
+              <li>マンション名・施設名の読みにも対応</li>
+            </ul>
+          </dd>
+
+          <dt>リクエスト例</dt>
+          <dd>
+            <div class="example-query">GET https://nominatim.openstreetmap.org/search
+  ?q=むさしこすぎ
+  &amp;format=json
+  &amp;limit=5
+  &amp;viewbox=139.6,35.6,139.7,35.5
+  &amp;bounded=1
+  &amp;accept-language=ja</div>
+          </dd>
+
+          <dt>主要パラメータ</dt>
+          <dd>
+            <code>q</code> — 検索テキスト<br>
+            <code>viewbox</code> — 検索範囲の矩形 (西,北,東,南)<br>
+            <code>bounded=1</code> — viewbox内に限定<br>
+            <code>limit</code> — 最大件数
+          </dd>
+
+          <dt>レスポンス形式</dt>
+          <dd>JSON配列 — 各要素に <code>place_id</code>, <code>lat</code>, <code>lon</code>, <code>display_name</code>, <code>type</code>, <code>class</code> を含む</dd>
+
+          <div class="limit-note">
+            <b>レート制限:</b> 公開サーバーは<b>最大1リクエスト/秒</b>。
+            本システムでは固有名詞検索時に1名詞=1リクエストで利用。
+            大量の連続検索は避ける設計。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== OpenStreetMap タイル ========== -->
+    <div class="api-section">
+      <h2>OpenStreetMap タイルサーバー（地図描画）</h2>
+      <div class="api-card">
+        <div class="api-card-header" style="background:#27ae60">
+          OSM Tile Server <span class="badge">HTTP / GET</span> <span class="badge">無料</span>
+        </div>
+        <div class="api-card-body">
+          <dt>概要</dt>
+          <dd>地図画像（タイル）を配信するサーバー。ズームレベルとXY座標に対応した256x256pxの画像を返す。
+              Leaflet が自動的にリクエストし、地図を描画する。</dd>
+
+          <dt>URL形式</dt>
+          <dd><div class="endpoint">https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</div>
+            <code>{s}</code> = サブドメイン (a/b/c)、
+            <code>{z}</code> = ズームレベル (0-19)、
+            <code>{x}/{y}</code> = タイル座標
+          </dd>
+
+          <dt>本システムでの使い方</dt>
+          <dd>Leaflet のベースレイヤーとして使用。マーカー・誤差円・検索範囲円はLeafletが地図上にオーバーレイ描画する。</dd>
+
+          <div class="limit-note">
+            <b>利用ポリシー:</b> <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank">OSM Tile Usage Policy</a> に準拠。
+            重い用途(大量アクセス)の場合は自前のタイルサーバーを検討。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TinySegmenter ========== -->
+    <div class="api-section">
+      <h2>TinySegmenter（日本語形態素解析）</h2>
+      <div class="api-card">
+        <div class="api-card-header" style="background:#2980b9">
+          TinySegmenter <span class="badge">クライアントサイド</span> <span class="badge">無料</span>
+        </div>
+        <div class="api-card-body">
+          <dt>概要</dt>
+          <dd>約25KBの軽量な日本語形態素解析ライブラリ。サーバー通信なしでブラウザ内で完結する。
+              テキストを単語単位に分割し、固有名詞の抽出に利用。</dd>
+
+          <dt>CDN</dt>
+          <dd><div class="endpoint">https://cdn.jsdelivr.net/npm/tiny-segmenter@0.2.0/tiny_segmenter.js</div></dd>
+
+          <dt>本システムでの使い方</dt>
+          <dd>
+            チャットテキストを形態素分割し、ストップワード（助詞・動詞等 約200語）を除去。
+            残った語を隣接結合して固有名詞を復元する。
+            <ul>
+              <li>入力: <code>「めんぱちが見えます」</code></li>
+              <li>分割: <code>["めんぱち", "が", "見え", "ます"]</code></li>
+              <li>ストップ除去: <code>["めんぱち"]</code></li>
+              <li>出力: 固有名詞候補 <code>"めんぱち"</code></li>
+            </ul>
+          </dd>
+
+          <div class="limit-note">
+            <b>特徴:</b> 外部API呼び出しなし（オフライン動作可能）。
+            MeCab等と比較して精度は劣るが、ブラウザ完結でインストール不要。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== Leaflet ========== -->
+    <div class="api-section">
+      <h2>Leaflet（地図UIライブラリ）</h2>
+      <div class="api-card">
+        <div class="api-card-header" style="background:#27ae60">
+          Leaflet v1.9.4 <span class="badge">クライアントサイド</span> <span class="badge">無料 / BSD-2</span>
+        </div>
+        <div class="api-card-body">
+          <dt>概要</dt>
+          <dd>オープンソースのJavaScript地図ライブラリ。タイルサーバーの画像を読み込み、マーカー・円・ポップアップ等のUI要素を地図上に描画する。</dd>
+
+          <dt>CDN</dt>
+          <dd><div class="endpoint">https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
+https://unpkg.com/leaflet@1.9.4/dist/leaflet.css</div></dd>
+
+          <dt>本システムでの使い方</dt>
+          <dd>
+            <ul>
+              <li><b>ベースマップ</b> — OSMタイルの表示</li>
+              <li><b>通報者マーカー</b> — GPS位置のピン表示</li>
+              <li><b>誤差円</b> — GPS精度の赤い破線円</li>
+              <li><b>検索範囲円</b> — 誤差x5の黄色い破線円</li>
+              <li><b>ランキングピン</b> — #1〜#5の番号付き丸ピン</li>
+              <li><b>ポップアップ</b> — 施設名・スコア・OSMタグ情報の表示</li>
+            </ul>
+          </dd>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== データフロー全体図 ========== -->
+    <div class="api-section">
+      <h2>データフロー</h2>
+      <p>各APIがどのタイミングで呼ばれるかの全体像です。</p>
+
+      <table class="summary-table">
+        <tr><th>タイミング</th><th>API / サービス</th><th>通信内容</th></tr>
+        <tr>
+          <td>ページ読み込み時</td>
+          <td>CDN (unpkg, jsdelivr)</td>
+          <td>Leaflet, TinySegmenter のJSファイルをダウンロード</td>
+        </tr>
+        <tr>
+          <td>地図表示時</td>
+          <td>OSM タイルサーバー</td>
+          <td>ズーム/スクロールに応じたタイル画像を取得</td>
+        </tr>
+        <tr>
+          <td>チャット(辞書マッチ)時</td>
+          <td>Overpass API</td>
+          <td>タグ検索 + name検索を1クエリで実行</td>
+        </tr>
+        <tr>
+          <td>チャット(固有名詞)時</td>
+          <td>Overpass API + Nominatim</td>
+          <td>全タグ横断検索 + 地名ジオコーディングを並行実行</td>
+        </tr>
+      </table>
+    </div>
+
+    <a href="index.html" class="back-link">&larr; トップに戻る</a>
+  </div>
+</body>
+</html>
