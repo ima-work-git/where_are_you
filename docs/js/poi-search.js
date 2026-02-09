@@ -213,13 +213,13 @@ const POISearch = (() => {
   /**
    * 住所ジオコーディング（viewbox制約なし）
    * 通報者が直接申告した住所なのでGPS範囲に縛らない
-   * @returns {Array|null} 候補の配列（最大3件）、各要素は {lat, lng, address, displayName, boundingbox}
+   * @returns {{lat, lng, address, displayName, boundingbox}|null} 最上位1件のみ
    */
   async function geocodeAddress(addressText) {
     const params = new URLSearchParams({
       q: addressText,
       format: 'json',
-      limit: '3',
+      limit: '1',
       countrycodes: 'jp',
       'accept-language': 'ja',
       addressdetails: '1',
@@ -231,16 +231,17 @@ const POISearch = (() => {
       const data = await res.json();
       if (data.length === 0) return null;
 
-      return data.map(item => ({
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon),
+      const best = data[0];
+      return {
+        lat: parseFloat(best.lat),
+        lng: parseFloat(best.lon),
         address: addressText,
-        displayName: item.display_name,
+        displayName: best.display_name,
         // boundingbox: [south, north, west, east]
-        boundingbox: item.boundingbox
-          ? item.boundingbox.map(Number)
+        boundingbox: best.boundingbox
+          ? best.boundingbox.map(Number)
           : null,
-      }));
+      };
     } catch (e) {
       console.error('住所ジオコーディングエラー:', e);
       return null;
@@ -802,7 +803,7 @@ const POISearch = (() => {
       totalCount: totalBeforeFilter,
       intersections,
       isMultiKeyword: effectiveResults.length >= 2,
-      addressResult,    // [{lat, lng, address, displayName, boundingbox}, ...] or null
+      addressResult,    // {lat, lng, address, displayName, boundingbox} or null
       addressQuery,     // 検出された住所文字列 or null
     };
   }

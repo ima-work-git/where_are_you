@@ -227,27 +227,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 住所検出処理 ---
     if (result.addressQuery) {
       MapModule.clearAddressMarker();
-      if (result.addressResult && result.addressResult.length > 0) {
-        const candidates = result.addressResult;
-        MapModule.showAddressCandidates(candidates);
-        const top = candidates[0];
-
-        if (candidates.length === 1) {
-          appendSystemMessage(`[住所検出] "${top.address}" → 地図上に表示しました`);
-        } else {
-          appendSystemMessage(`[住所検出] "${top.address}" → ${candidates.length}件の候補を表示`);
-        }
+      if (result.addressResult) {
+        const addr = result.addressResult;
+        MapModule.showAddressMarker(addr.lat, addr.lng, addr.address, addr.displayName, addr.boundingbox);
+        appendSystemMessage(`[住所検出] "${addr.address}" → 地図上に表示しました`);
 
         // boundingbox があればその範囲にフィット、なければポイントにズーム
-        if (top.boundingbox && top.boundingbox.length === 4) {
-          const [south, north, west, east] = top.boundingbox;
+        if (addr.boundingbox && addr.boundingbox.length === 4) {
+          const [south, north, west, east] = addr.boundingbox;
           MapModule.getMap().fitBounds([[south, west], [north, east]], { padding: [40, 40], maxZoom: 18 });
         } else {
-          MapModule.getMap().setView([top.lat, top.lng], 17);
+          MapModule.getMap().setView([addr.lat, addr.lng], 17);
         }
-
-        // ランキングパネルに住所候補を表示
-        updateAddressRanking(candidates);
       } else {
         appendSystemMessage(`[住所検出] "${result.addressQuery}" → 位置を特定できませんでした`);
       }
@@ -307,34 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const RANK_COLORS = ['#e67e22', '#95a5a6', '#cd7f32', '#2980b9', '#2c3e50'];
 
   function updateRankingPanel(results) {
-    // 住所候補のヘッダー・項目を保持して POI 部分だけ再構築
-    const addressItems = rankingList.querySelectorAll('.ranking-address-header, .ranking-address-item');
-    const hasAddress = addressItems.length > 0;
-
-    // POI項目だけ除去（住所項目は残す）
-    const toRemove = [];
-    for (const child of rankingList.children) {
-      if (!child.classList.contains('ranking-address-header') &&
-          !child.classList.contains('ranking-address-item')) {
-        toRemove.push(child);
-      }
-    }
-    toRemove.forEach(el => el.remove());
-
+    rankingList.innerHTML = '';
     if (!results || results.length === 0) {
-      if (!hasAddress) rankingPanel.classList.add('hidden');
+      rankingPanel.classList.add('hidden');
       return;
-    }
-
-    // POIセクションヘッダー（住所候補もある場合）
-    if (hasAddress) {
-      const poiHeader = document.createElement('li');
-      poiHeader.className = 'ranking-item';
-      poiHeader.innerHTML = '<span style="font-size:11px;color:#2980b9;font-weight:700;width:100%">施設候補</span>';
-      poiHeader.style.cursor = 'default';
-      poiHeader.style.borderBottom = '2px solid #2980b9';
-      poiHeader.style.padding = '4px 12px';
-      rankingList.appendChild(poiHeader);
     }
 
     for (let i = 0; i < results.length; i++) {
@@ -360,64 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function clearRankingPanel() {
     rankingList.innerHTML = '';
     rankingPanel.classList.add('hidden');
-  }
-
-  /**
-   * 住所候補をランキングパネルに表示（POI候補がない場合のみ独立表示）
-   */
-  function updateAddressRanking(candidates) {
-    if (!candidates || candidates.length === 0) return;
-
-    // 住所候補だけの場合はパネルをクリアして住所専用表示
-    // POI候補と併用の場合は先頭に住所セクションを挿入
-    const hasPoiItems = rankingList.children.length > 0;
-
-    if (!hasPoiItems) {
-      rankingList.innerHTML = '';
-    }
-
-    // 住所候補の区切りヘッダー
-    const header = document.createElement('li');
-    header.className = 'ranking-item ranking-address-header';
-    header.innerHTML = '<span style="font-size:11px;color:#e91e63;font-weight:700;width:100%">住所候補</span>';
-    header.style.cursor = 'default';
-    header.style.borderBottom = '2px solid #e91e63';
-    header.style.padding = '4px 12px';
-
-    if (hasPoiItems) {
-      rankingList.insertBefore(header, rankingList.firstChild);
-    } else {
-      rankingList.appendChild(header);
-    }
-
-    // 候補を逆順で挿入（先頭に入れるため）or 順に追加
-    for (let i = candidates.length - 1; i >= 0; i--) {
-      const c = candidates[i];
-      const rank = i + 1;
-      const li = document.createElement('li');
-      li.className = 'ranking-item ranking-address-item';
-      const shortName = c.displayName.split(',').slice(0, 3).join(', ');
-      li.innerHTML =
-        `<span class="ranking-badge" style="background:#e91e63">${rank}</span>` +
-        `<span class="ranking-name">${escapeHtml(shortName)}</span>`;
-      li.addEventListener('click', () => {
-        if (c.boundingbox && c.boundingbox.length === 4) {
-          const [south, north, west, east] = c.boundingbox;
-          MapModule.getMap().fitBounds([[south, west], [north, east]], { padding: [40, 40], maxZoom: 18 });
-        } else {
-          MapModule.getMap().setView([c.lat, c.lng], 17);
-        }
-      });
-
-      if (hasPoiItems) {
-        // ヘッダーの直後に挿入
-        rankingList.insertBefore(li, header.nextSibling);
-      } else {
-        rankingList.appendChild(li);
-      }
-    }
-
-    rankingPanel.classList.remove('hidden');
   }
 
   function escapeHtml(str) {
