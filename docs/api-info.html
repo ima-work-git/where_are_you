@@ -296,7 +296,7 @@
 
           <dt>本システムでの使い方</dt>
           <dd>
-            <b>1. 辞書マッチ検索</b> — OSMタグ（amenity, shop等）で施設を種別検索 + ラベル名で <code>[~"."~"label"]</code> 全タグ横断検索（name, brand, alt_name等すべて対象）<br>
+            <b>1. 辞書マッチ検索</b> — OSMタグ（amenity, shop等）で施設を種別検索 + サブタグ検索（cuisine等の業種タグ）+ ラベル名で <code>[~"."~"label"]</code> 全タグ横断検索（name, brand, alt_name等すべて対象）<br>
             <b>2. 固有名詞検索</b> — <code>[~"."~"keyword"]</code> で全タグの値を正規表現マッチ
           </dd>
 
@@ -310,6 +310,21 @@
   way[~"."~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
 );
 out center body;</div>
+          </dd>
+
+          <dt>クエリ例: 辞書マッチ + cuisineサブタグ（うどん屋）</dt>
+          <dd>
+            <div class="example-query">[out:json][timeout:10];
+(
+  node[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"](around:250,35.57,139.66);
+  way[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"](around:250,35.57,139.66);
+  node[amenity~"restaurant|fast_food"][cuisine~"udon"](around:250,35.57,139.66);
+  way[amenity~"restaurant|fast_food"][cuisine~"udon"](around:250,35.57,139.66);
+  node[~"."~"うどん屋|うどんや|ウドンヤ",i](around:250,35.57,139.66);
+  way[~"."~"うどん屋|うどんや|ウドンヤ",i](around:250,35.57,139.66);
+);
+out center body;</div>
+            <p style="font-size:12px;color:#888;margin-top:4px">名前に「うどん」を含まない店舗（丸亀製麺等）も <code>cuisine=udon</code> タグでヒットする</p>
           </dd>
 
           <dt>クエリ例: 固有名詞（めんぱち）</dt>
@@ -508,7 +523,7 @@ https://unpkg.com/leaflet@1.9.4/dist/leaflet.css</div></dd>
         <tr>
           <td>チャット(辞書マッチ)時</td>
           <td>Overpass API</td>
-          <td>タグ検索 + 全タグ横断検索を1クエリで実行</td>
+          <td>タグ検索 + サブタグ検索(cuisine等) + 全タグ横断検索を1クエリで実行</td>
         </tr>
         <tr>
           <td>チャット(固有名詞)時</td>

@@ -55,21 +55,21 @@ const POISearch = (() => {
     { pattern: /飲み屋|のみや/i, tags: '[amenity~"bar|pub|restaurant"]["name"~"居酒屋|酒場|酒処|のれん"]', label: '飲み屋' },
 
     // --- ラーメン・中華 ---
-    { pattern: /ラーメン(?:屋)?|らーめん/i, tags: '[amenity~"restaurant|fast_food"]["name"~"ラーメン|らーめん|拉麺|らぁめん"]', label: 'ラーメン屋' },
+    { pattern: /ラーメン(?:屋)?|らーめん/i, tags: '[amenity~"restaurant|fast_food"]["name"~"ラーメン|らーめん|拉麺|らぁめん"]', altTags: '[amenity~"restaurant|fast_food"][cuisine~"ramen|noodle"]', label: 'ラーメン屋' },
     { pattern: /中華(?:料理)?(?:屋)?/i, tags: '[amenity=restaurant][cuisine=chinese]', label: '中華料理' },
     { pattern: /日高屋/i, tags: '["name"~"日高屋"]', label: '日高屋' },
 
     // --- 寿司・和食 ---
-    { pattern: /寿司|すし|鮨/i, tags: '[amenity~"restaurant|fast_food"]["name"~"寿司|すし|鮨|スシ|寿し"]', label: '寿司屋' },
+    { pattern: /寿司|すし|鮨/i, tags: '[amenity~"restaurant|fast_food"]["name"~"寿司|すし|鮨|スシ|寿し"]', altTags: '[amenity~"restaurant|fast_food"][cuisine~"sushi"]', label: '寿司屋' },
     { pattern: /くら寿司/i, tags: '["name"~"くら寿司"]', label: 'くら寿司' },
     { pattern: /スシロー/i, tags: '["name"~"スシロー"]', label: 'スシロー' },
     { pattern: /はま寿司/i, tags: '["name"~"はま寿司"]', label: 'はま寿司' },
-    { pattern: /そば(?:屋)?|蕎麦/i, tags: '[amenity=restaurant]["name"~"そば|蕎麦|ソバ"]', label: 'そば屋' },
-    { pattern: /うどん(?:屋)?/i, tags: '[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"]', label: 'うどん屋' },
+    { pattern: /そば(?:屋)?|蕎麦/i, tags: '[amenity=restaurant]["name"~"そば|蕎麦|ソバ"]', altTags: '[amenity~"restaurant|fast_food"][cuisine~"soba"]', label: 'そば屋' },
+    { pattern: /うどん(?:屋)?/i, tags: '[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"]', altTags: '[amenity~"restaurant|fast_food"][cuisine~"udon"]', label: 'うどん屋' },
     { pattern: /丸亀/i, tags: '["name"~"丸亀製麺"]', label: '丸亀製麺' },
 
     // --- 焼肉・カレー ---
-    { pattern: /焼肉|やきにく/i, tags: '[amenity=restaurant]["name"~"焼肉|焼き肉|やきにく|カルビ"]', label: '焼肉屋' },
+    { pattern: /焼肉|やきにく/i, tags: '[amenity=restaurant]["name"~"焼肉|焼き肉|やきにく|カルビ"]', altTags: '[amenity~"restaurant|fast_food"][cuisine~"yakiniku|korean_bbq|barbecue"]', label: '焼肉屋' },
     { pattern: /カレー(?:屋)?/i, tags: '[amenity~"restaurant|fast_food"][cuisine=curry]', label: 'カレー屋' },
 
     // --- パン屋 (shop=bakery) ---
@@ -101,7 +101,7 @@ const POISearch = (() => {
     // --- 医療 ---
     { pattern: /病院|びょういん/i, tags: '[amenity~"hospital|clinic"]', label: '病院' },
     { pattern: /クリニック/i, tags: '[amenity=clinic]', label: 'クリニック' },
-    { pattern: /歯医者|歯科|しか/i, tags: '[amenity~"dentist|clinic"]["name"~"歯科|デンタル"]', label: '歯科' },
+    { pattern: /歯医者|歯科|しか/i, tags: '[amenity~"dentist|clinic"]["name"~"歯科|デンタル"]', altTags: '[amenity=dentist]', label: '歯科' },
 
     // --- 教育 ---
     { pattern: /小学校/i, tags: '[amenity=school]["name"~"小学校"]', label: '小学校' },
@@ -417,21 +417,31 @@ const POISearch = (() => {
 
   // ========== Overpass API クエリ ==========
   /**
-   * 辞書マッチ検索: タグ検索 + ラベル名の全タグ横断検索を1クエリで実行
-   * 例: "寿司屋" → [amenity=restaurant][name~"寿司"] に加え、
-   *     [~"."~"寿司屋|すしや|スシヤ"] で name/brand/alt_name 等全タグを対象に検索
+   * 辞書マッチ検索: タグ検索 + サブタグ検索 + ラベル名の全タグ横断検索を1クエリで実行
+   * 例: "うどん屋" →
+   *   1. [amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"]  (名前マッチ)
+   *   2. [amenity~"restaurant|fast_food"][cuisine~"udon"]         (altTags: cuisineサブタグ)
+   *   3. [~"."~"うどん屋|うどんや|ウドンヤ"]                      (全タグ横断)
    */
   async function searchNearby(lat, lng, radiusMeters, keyword) {
     // label名のかなバリアントでname横断検索も追加
     const nameVariants = kanaVariants(keyword.label).map(v => escapeRegex(v));
     const nameRegex = nameVariants.join('|');
 
+    // altTags（cuisine等のサブタグ検索）があれば union に追加
+    let altLines = '';
+    if (keyword.altTags) {
+      altLines = `
+        node${keyword.altTags}(around:${radiusMeters},${lat},${lng});
+        way${keyword.altTags}(around:${radiusMeters},${lat},${lng});`;
+    }
+
     const query = `
       [out:json][timeout:10];
       (
         node${keyword.tags}(around:${radiusMeters},${lat},${lng});
         way${keyword.tags}(around:${radiusMeters},${lat},${lng});
-        relation${keyword.tags}(around:${radiusMeters},${lat},${lng});
+        relation${keyword.tags}(around:${radiusMeters},${lat},${lng});${altLines}
         node[~"."~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
         way[~"."~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
       );
