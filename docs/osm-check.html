@@ -200,87 +200,14 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* モーダル */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 3000;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    .modal-overlay.show { display: flex; }
-    .modal-box {
-      background: #fff;
-      border-radius: 10px;
-      width: 100%;
-      max-width: 600px;
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-    }
-    .modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #eee;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .modal-header h3 {
-      margin: 0;
-      font-size: 16px;
-      color: #1a1a2e;
-    }
-    .modal-header .modal-count {
-      font-size: 13px;
-      color: #888;
-      font-weight: 400;
-    }
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 22px;
-      cursor: pointer;
-      color: #999;
-      padding: 0 4px;
-    }
-    .modal-close:hover { color: #333; }
-    .modal-body {
-      padding: 12px 20px;
-      overflow-y: auto;
-      flex: 1;
-    }
-    .poi-item {
-      padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 13px;
-      line-height: 1.7;
-    }
-    .poi-item:last-child { border-bottom: none; }
-    .poi-item .poi-name {
-      font-weight: 700;
-      color: #333;
-      font-size: 14px;
-    }
-    .poi-item .poi-tags {
-      color: #888;
-      font-size: 12px;
-      margin-top: 2px;
-    }
-    .poi-item .poi-tags code {
-      background: #f0f0f0;
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-size: 11px;
-    }
-    .poi-item .poi-dist {
-      color: #2980b9;
-      font-weight: 600;
-      font-size: 12px;
-    }
+    /* ポップアップ */
+    .tag-popup { font-size: 12px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+    .tag-popup .popup-title { font-weight: 700; font-size: 14px; color: #1a1a2e; margin-bottom: 6px; }
+    .tag-popup .popup-cat { font-size: 11px; color: #fff; background: #27ae60; padding: 1px 8px; border-radius: 3px; display: inline-block; margin-bottom: 6px; }
+    .tag-popup table { border-collapse: collapse; width: 100%; }
+    .tag-popup td { padding: 2px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: top; word-break: break-all; }
+    .tag-popup td:first-child { font-weight: 600; color: #555; white-space: nowrap; width: 1%; }
+    .tag-popup td:last-child { color: #333; }
   </style>
 </head>
 <body>
@@ -318,16 +245,6 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 id="modal-title">カテゴリ名</h3>
-        <button class="modal-close" id="modal-close">&times;</button>
-      </div>
-      <div class="modal-body" id="modal-body"></div>
-    </div>
-  </div>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
   (() => {
@@ -359,12 +276,23 @@
 
     const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 
+    // カテゴリ別マーカー色
+    const CAT_COLORS = {
+      convenience:'#e67e22', fastfood:'#e74c3c', cafe:'#8e44ad', restaurant:'#2980b9',
+      bar:'#c0392b', bakery:'#d4a574', supermarket:'#27ae60', drugstore:'#16a085',
+      public:'#2c3e50', medical:'#e74c3c', education:'#3498db', religion:'#9b59b6',
+      park:'#2ecc71', station:'#34495e', traffic:'#7f8c8d', fuel:'#f39c12',
+      parking:'#95a5a6', finance:'#1abc9c', hotel:'#e67e22', beauty:'#eb6ca0',
+      shops:'#7f8c8d', landmark:'#555',
+    };
+
     // ========== 状態 ==========
     let selectedLat = null;
     let selectedLng = null;
-    let marker = null;
+    let centerMarker = null;
     let radiusCircle = null;
-    let categoryResults = {};  // { categoryId: [poi, ...] }
+    let categoryResults = {};
+    let poiLayerGroup = null;
 
     // ========== DOM ==========
     const radiusSlider = document.getElementById('radius-slider');
@@ -373,9 +301,6 @@
     const btnCheck = document.getElementById('btn-check');
     const catGrid = document.getElementById('cat-grid');
     const loadingEl = document.getElementById('loading');
-    const modalEl = document.getElementById('modal');
-    const modalTitle = document.getElementById('modal-title');
-    const modalBody = document.getElementById('modal-body');
     const mapHint = document.getElementById('map-hint');
 
     // ========== 地図初期化 ==========
@@ -390,10 +315,10 @@
       selectedLat = e.latlng.lat;
       selectedLng = e.latlng.lng;
 
-      if (marker) map.removeLayer(marker);
+      if (centerMarker) map.removeLayer(centerMarker);
       if (radiusCircle) map.removeLayer(radiusCircle);
 
-      marker = L.marker([selectedLat, selectedLng]).addTo(map);
+      centerMarker = L.marker([selectedLat, selectedLng]).addTo(map);
       updateRadiusCircle();
 
       locText.textContent = `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
@@ -499,18 +424,31 @@
 
     // ========== 分類 & 描画 ==========
     function classifyAndRender(pois) {
+      // 既存マーカークリア
+      if (poiLayerGroup) map.removeLayer(poiLayerGroup);
+      poiLayerGroup = L.layerGroup().addTo(map);
+
       categoryResults = {};
       for (const cat of CATEGORIES) {
         categoryResults[cat.id] = [];
       }
 
       for (const poi of pois) {
+        let matched = false;
         for (const cat of CATEGORIES) {
           if (cat.match(poi.tags)) {
             const dist = distanceMeters(selectedLat, selectedLng, poi.lat, poi.lng);
-            categoryResults[cat.id].push({ ...poi, distance: Math.round(dist) });
-            break; // 1 POI = 1 category
+            const enriched = { ...poi, distance: Math.round(dist), catId: cat.id, catName: cat.name };
+            categoryResults[cat.id].push(enriched);
+            addPoiMarker(enriched);
+            matched = true;
+            break;
           }
+        }
+        // どのカテゴリにも属さないPOIもマーカー表示
+        if (!matched && poi.lat && poi.lng) {
+          const dist = distanceMeters(selectedLat, selectedLng, poi.lat, poi.lng);
+          addPoiMarker({ ...poi, distance: Math.round(dist), catId: null, catName: '未分類' });
         }
       }
 
@@ -527,53 +465,61 @@
           <div class="cat-count">${count > 0 ? count + ' 件' : '登録なし'}</div>
         `;
 
-        // イベント再設定
         card.onclick = null;
         if (count > 0) {
-          card.onclick = () => openModal(cat, items);
+          card.onclick = () => zoomToCategory(cat.id);
         }
       }
     }
 
-    // ========== モーダル ==========
-    function openModal(cat, items) {
-      // 距離順ソート
-      items.sort((a, b) => a.distance - b.distance);
+    // ========== 地図にPOIマーカー追加 ==========
+    function addPoiMarker(poi) {
+      const color = CAT_COLORS[poi.catId] || '#888';
+      const cm = L.circleMarker([poi.lat, poi.lng], {
+        radius: 7,
+        fillColor: color,
+        fillOpacity: 0.85,
+        color: '#fff',
+        weight: 2,
+      });
 
-      modalTitle.innerHTML = `${esc(cat.name)} <span class="modal-count">${items.length}件</span>`;
-      modalBody.innerHTML = '';
-
-      for (const poi of items) {
-        const div = document.createElement('div');
-        div.className = 'poi-item';
-
-        const tagKeys = ['amenity','shop','leisure','tourism','railway','highway',
-                         'cuisine','brand','operator','religion','waterway','man_made'];
-        const tagParts = [];
-        for (const k of tagKeys) {
-          if (poi.tags[k]) tagParts.push(`<code>${esc(k)}=${esc(poi.tags[k])}</code>`);
-        }
-        // address
-        const addr = poi.tags['addr:full'] || poi.tags['addr:street'] || '';
-
-        div.innerHTML = `
-          <div class="poi-name">${esc(poi.name) || '(名称なし)'}</div>
-          <div class="poi-dist">${poi.distance}m</div>
-          <div class="poi-tags">${tagParts.join(' ')}</div>
-          ${addr ? `<div class="poi-tags">${esc(addr)}</div>` : ''}
-        `;
-        modalBody.appendChild(div);
-      }
-
-      modalEl.classList.add('show');
+      cm.bindPopup(() => buildTagPopup(poi), { maxWidth: 360, maxHeight: 350 });
+      poiLayerGroup.addLayer(cm);
     }
 
-    document.getElementById('modal-close').addEventListener('click', () => {
-      modalEl.classList.remove('show');
-    });
-    modalEl.addEventListener('click', (e) => {
-      if (e.target === modalEl) modalEl.classList.remove('show');
-    });
+    // ========== 全タグ表示ポップアップ ==========
+    function buildTagPopup(poi) {
+      const name = poi.name || '(名称なし)';
+      let rows = '';
+      const tags = poi.tags;
+      // タグをキー順でソート表示
+      const keys = Object.keys(tags).sort();
+      for (const k of keys) {
+        rows += `<tr><td>${esc(k)}</td><td>${esc(tags[k])}</td></tr>`;
+      }
+
+      return `<div class="tag-popup">
+        <div class="popup-title">${esc(name)}</div>
+        <span class="popup-cat">${esc(poi.catName)}</span>
+        <span style="font-size:12px;color:#2980b9;font-weight:600;margin-left:6px">${poi.distance}m</span>
+        ${keys.length > 0
+          ? `<table>${rows}</table>`
+          : '<div style="color:#888;font-size:12px;margin-top:6px">タグ情報なし</div>'}
+      </div>`;
+    }
+
+    // ========== カテゴリカード → 地図ズーム ==========
+    function zoomToCategory(catId) {
+      const items = categoryResults[catId];
+      if (!items || items.length === 0) return;
+
+      if (items.length === 1) {
+        map.setView([items[0].lat, items[0].lng], 17);
+      } else {
+        const bounds = L.latLngBounds(items.map(p => [p.lat, p.lng]));
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
+      }
+    }
 
     // ========== ユーティリティ ==========
     function distanceMeters(lat1, lng1, lat2, lng2) {
