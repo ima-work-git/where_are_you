@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スコアリングについて - 消防指令台 位置特定システム</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f5f5f5; }
+    .sc-wrapper {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+    }
+    .sc-wrapper h1 {
+      font-size: 22px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .sc-wrapper .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .sc-section {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .sc-section h2 {
+      font-size: 17px;
+      color: #1a1a2e;
+      border-left: 4px solid #2c3e50;
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+    .sc-section p, .sc-section li {
+      font-size: 14px;
+      line-height: 1.8;
+      color: #444;
+    }
+    .sc-section ul, .sc-section ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .sc-section li { margin-bottom: 6px; }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #2980b9;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    /* 大枠のフォーミュラ */
+    .formula-box {
+      background: #fdf2e9;
+      border: 2px solid #e67e22;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      color: #1a1a2e;
+    }
+    .formula-box .sub {
+      font-size: 13px;
+      font-weight: 400;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    /* フロー図 */
+    .flow-overview {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+      font-size: 13px;
+      line-height: 2;
+    }
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0;
+      flex-wrap: wrap;
+    }
+    .flow-box {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      color: #fff;
+    }
+    .flow-box.dist { background: #2980b9; }
+    .flow-box.text { background: #e67e22; }
+    .flow-box.total { background: #2c3e50; }
+    .flow-box.input { background: #95a5a6; }
+    .flow-arrow { color: #999; font-weight: 700; font-size: 16px; }
+    .flow-label { font-size: 12px; color: #888; }
+
+    /* テーブル */
+    .sc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .sc-table th {
+      background: #2c3e50;
+      color: #fff;
+      padding: 8px 12px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .sc-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      text-align: center;
+    }
+    .sc-table tr:nth-child(even) td {
+      background: #f9f9f9;
+    }
+    .sc-table td:first-child { text-align: left; }
+    .sc-table th:first-child { text-align: left; }
+
+    /* 例ボックス */
+    .example-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      margin: 14px 0;
+      overflow: hidden;
+    }
+    .example-card-header {
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 13px;
+      color: #fff;
+      background: #2c3e50;
+    }
+    .example-card-body {
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.9;
+      color: #444;
+    }
+    .example-card-body .calc {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin: 8px 0;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .example-card-body .result {
+      font-weight: 700;
+      color: #1a1a2e;
+      font-size: 15px;
+    }
+
+    /* 補足 */
+    .note-box {
+      background: #fef9e7;
+      border-left: 3px solid #f39c12;
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    h3.sub {
+      font-size: 14px;
+      margin: 20px 0 8px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="sc-wrapper">
+    <a href="index.html" class="back-link">&larr; トップに戻る</a>
+
+    <h1>スコアリングについて</h1>
+    <p class="subtitle">候補地点を順位付けするスコアリングの仕組み</p>
+
+    <!-- ========== 全体像 ========== -->
+    <div class="sc-section">
+      <h2>全体像</h2>
+      <p>検索でヒットした全候補に<b>総合スコア</b>を付与し、スコアが高い順に<b>上位5件のみ</b>を地図とランキングパネルに表示します。</p>
+
+      <div class="formula-box">
+        総合スコア = 近距離スコア(0〜100) &times; 40% + テキストスコア(0〜100) &times; 60%
+        <div class="sub">2つの評価軸を重み付けして合算。テキスト一致度を重視した配分。</div>
+      </div>
+
+      <div class="flow-overview">
+        <div class="flow-row">
+          <span class="flow-box input">検索ヒット候補</span>
+        </div>
+        <div class="flow-row" style="margin-left: 30px">
+          <span class="flow-arrow">&darr;</span>
+          <span class="flow-label">各候補に2軸で採点</span>
+        </div>
+        <div class="flow-row" style="margin-left: 30px; gap: 8px">
+          <span class="flow-box dist">近距離スコア</span>
+          <span class="flow-label">通報者からの距離（GPS誤差円基準）</span>
+        </div>
+        <div class="flow-row" style="margin-left: 30px; gap: 8px">
+          <span class="flow-box text">テキストスコア</span>
+          <span class="flow-label">POIのタグに検索語がどれだけ一致するか</span>
+        </div>
+        <div class="flow-row" style="margin-left: 30px">
+          <span class="flow-arrow">&darr;</span>
+          <span class="flow-label">重み付け合算</span>
+        </div>
+        <div class="flow-row" style="margin-left: 30px; gap: 8px">
+          <span class="flow-box total">総合スコア</span>
+          <span class="flow-label">降順ソート &rarr; 上位5件を表示</span>
+        </div>
+      </div>
+
+      <p><b>なぜ2軸か？</b></p>
+      <ul>
+        <li><b>近さだけでは不十分</b> — 近くても名前が全く違う施設は候補として弱い</li>
+        <li><b>名前一致だけでは不十分</b> — 名前が合っていても遠すぎる施設は現場と無関係</li>
+        <li>両方を組み合わせることで<b>「近くて名前も合う」候補</b>を最上位にする</li>
+      </ul>
+    </div>
+
+    <!-- ========== 近距離スコア ========== -->
+    <div class="sc-section">
+      <h2>近距離スコア（40%配分）</h2>
+      <p>通報者のGPS位置からの距離を、<b>GPS誤差円を基準とした6段階</b>で評価します。</p>
+
+      <table class="sc-table">
+        <tr><th>距離</th><th>スコア</th><th>意味</th></tr>
+        <tr><td>誤差円内</td><td>100</td><td>通報者の居場所の可能性が最も高い範囲</td></tr>
+        <tr><td>誤差円 &times; 1〜2倍</td><td>80</td><td>すぐ近く</td></tr>
+        <tr><td>誤差円 &times; 2〜3倍</td><td>60</td><td>やや離れている</td></tr>
+        <tr><td>誤差円 &times; 3〜4倍</td><td>40</td><td>見えるかどうかの距離</td></tr>
+        <tr><td>誤差円 &times; 4〜5倍</td><td>20</td><td>遠い</td></tr>
+        <tr><td>誤差円 &times; 5倍超</td><td>0</td><td>検索範囲の限界</td></tr>
+      </table>
+
+      <div class="note-box">
+        <b>GPS誤差円との関係:</b> GPS精度が50mの場合、誤差円=50m。
+        検索範囲は誤差&times;5=250m。100m先の施設は「&times;2倍」=80点。
+        200m先は「&times;4倍」=40点。距離が同じでもGPS精度が変われば評価も変わる。
+      </div>
+    </div>
+
+    <!-- ========== テキストスコア ========== -->
+    <div class="sc-section">
+      <h2>テキストスコア（60%配分）</h2>
+      <p>検索語がPOIのOSMタグにどれだけ一致するかを評価します。<br>
+         辞書マッチ・固有名詞とも<b>同一のロジック</b>で採点します。</p>
+
+      <div class="formula-box">
+        テキストスコア = タグ重要度 &times; マッチ品質 &times; 100
+        <div class="sub">POIの全タグを走査し、最もスコアが高い組み合わせを採用</div>
+      </div>
+
+      <h3 class="sub">タグ重要度</h3>
+      <p>一致したタグの種類によって信頼度が変わります。<code>name</code> が最も信頼度が高く、説明文など周辺タグほど低くなります。</p>
+
+      <table class="sc-table">
+        <tr><th>タグ</th><th>重要度</th><th>例</th></tr>
+        <tr><td>name</td><td>1.0</td><td>name=「セブン-イレブン 武蔵小杉店」</td></tr>
+        <tr><td>brand</td><td>0.85</td><td>brand=「セブン-イレブン」</td></tr>
+        <tr><td>operator</td><td>0.75</td><td>operator=「株式会社セブン-イレブン・ジャパン」</td></tr>
+        <tr><td>alt_name / short_name / official_name</td><td>0.7</td><td>alt_name=「7-Eleven」</td></tr>
+        <tr><td>name:* (言語別)</td><td>0.65</td><td>name:en=「Seven-Eleven」</td></tr>
+        <tr><td>その他のタグ</td><td>0.3</td><td>description, note 等</td></tr>
+      </table>
+
+      <h3 class="sub">マッチ品質</h3>
+      <p>検索語がタグ値のどの位置にどれだけの割合で含まれるかを評価します。</p>
+
+      <table class="sc-table">
+        <tr><th>マッチ種別</th><th>倍率</th><th>判定条件</th><th>例</th></tr>
+        <tr><td>完全一致</td><td>1.0</td><td>タグ値 = 検索語</td><td>「めんぱち」= name:「めんぱち」</td></tr>
+        <tr><td>前方一致</td><td>0.9</td><td>タグ値が検索語で始まる</td><td>「めんぱち」&rarr; name:「めんぱち 川崎店」</td></tr>
+        <tr><td>含有一致</td><td>0.5 + 長さ比率 &times; 0.3</td><td>タグ値に検索語を含む</td><td>「めんぱち」&rarr; name:「居酒屋めんぱち本店」</td></tr>
+      </table>
+
+      <div class="note-box">
+        <b>含有一致の長さ比率:</b> 検索語の文字数 &divide; タグ値の文字数。
+        検索語がタグ値のどれだけを占めるかで、0.5〜0.8の間に収まる。
+        短いタグ値の中に長い検索語が含まれるほど高スコア。
+      </div>
+
+      <h3 class="sub">辞書マッチでテキスト一致なしの場合</h3>
+      <p>辞書のカテゴリタグ（<code>shop=convenience</code> 等）でヒットしたが、POI名に検索ラベルを含まない場合は<b>50点</b>を付与します。</p>
+      <p>例: 「コンビニ」で検索 → <code>shop=convenience</code> のPOIがヒット → POI名は「ファミリーマート」（「コンビニ」を含まない）→ 50点</p>
+
+      <div class="note-box">
+        カテゴリタグで種別が一致している時点で一定の信頼度があるため、固有名詞の不一致（10点）よりは高く設定しています。
+      </div>
+    </div>
+
+    <!-- ========== かな正規化とスコア ========== -->
+    <div class="sc-section">
+      <h2>かな正規化</h2>
+      <p>テキストスコアの算出時、検索語は自動的に<b>ひらがな版・カタカナ版・原文</b>の3パターンに変換されます。
+         いずれかがタグ値に含まれればヒットとして扱います。</p>
+      <table class="sc-table">
+        <tr><th>入力</th><th>比較対象</th><th>結果</th></tr>
+        <tr><td>すし屋</td><td>name=「寿司屋 大漁」</td><td>「すし」→ 含有ヒット</td></tr>
+        <tr><td>スタバ</td><td>name=「スターバックス」</td><td>「スタバ」→ 含有ヒット</td></tr>
+        <tr><td>めんぱち</td><td>name:ja_kana=「メンパチ」</td><td>「メンパチ」(カタカナ変換) → 完全一致ヒット</td></tr>
+      </table>
+    </div>
+
+    <!-- ========== 具体的な計算例 ========== -->
+    <div class="sc-section">
+      <h2>計算例</h2>
+      <p>実際の候補がどのようにスコアリングされるか、3つのケースで示します。</p>
+
+      <div class="example-card">
+        <div class="example-card-header">例1: 辞書マッチ — ブランド名がname一致</div>
+        <div class="example-card-body">
+          検索語: 「セブンイレブン」（辞書）<br>
+          候補: name=「セブン-イレブン 武蔵小杉店」 / 距離: 30m（誤差円50m内）
+          <div class="calc">
+            近距離: 誤差円内 → <b>100</b><br>
+            テキスト: name(1.0) &times; 前方一致(0.9) &times; 100 = <b>90</b><br>
+            総合 = 100 &times; 0.4 + 90 &times; 0.6 = <b class="result">94点</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-card">
+        <div class="example-card-header">例2: 辞書マッチ — カテゴリのみ（テキスト不一致）</div>
+        <div class="example-card-body">
+          検索語: 「コンビニ」（辞書）<br>
+          候補: name=「ファミリーマート」(shop=convenience) / 距離: 120m（誤差円50mの&times;2〜3倍）
+          <div class="calc">
+            近距離: &times;2〜3倍 → <b>60</b><br>
+            テキスト: POI名に「コンビニ」なし → カテゴリタグ一致 → <b>50</b><br>
+            総合 = 60 &times; 0.4 + 50 &times; 0.6 = <b class="result">54点</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-card">
+        <div class="example-card-header">例3: 固有名詞 — nameに含有</div>
+        <div class="example-card-body">
+          検索語: 「めんぱち」（固有名詞）<br>
+          候補: name=「居酒屋めんぱち本店」 / 距離: 40m（誤差円50m内）
+          <div class="calc">
+            近距離: 誤差円内 → <b>100</b><br>
+            テキスト: name(1.0) &times; 含有(0.5 + 4/9 &times; 0.3 &asymp; 0.63) &times; 100 = <b>63</b><br>
+            総合 = 100 &times; 0.4 + 63 &times; 0.6 = <b class="result">78点</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-card">
+        <div class="example-card-header" style="background:#8e44ad">例4: 固有名詞 — brandタグに完全一致</div>
+        <div class="example-card-body">
+          検索語: 「鳥貴族」（固有名詞）<br>
+          候補: brand=「鳥貴族」 / 距離: 180m（誤差円50mの&times;3〜4倍）
+          <div class="calc">
+            近距離: &times;3〜4倍 → <b>40</b><br>
+            テキスト: brand(0.85) &times; 完全一致(1.0) &times; 100 = <b>85</b><br>
+            総合 = 40 &times; 0.4 + 85 &times; 0.6 = <b class="result">67点</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-card">
+        <div class="example-card-header" style="background:#c0392b">例5: 全タグ横断 — descriptionにヒット</div>
+        <div class="example-card-body">
+          検索語: 「むさしこすぎ」（固有名詞）<br>
+          候補: description=「武蔵小杉駅前の商業施設」(name=「ららテラス」) / 距離: 80m（&times;1〜2倍）
+          <div class="calc">
+            近距離: &times;1〜2倍 → <b>80</b><br>
+            テキスト: その他(0.3) &times; 含有(0.5 + 6/12 &times; 0.3 = 0.65) &times; 100 = <b>20</b><br>
+            総合 = 80 &times; 0.4 + 20 &times; 0.6 = <b class="result">44点</b>
+          </div>
+          description のような補助タグでのヒットは重要度が低いため、順位は下がります。
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 表示の仕組み ========== -->
+    <div class="sc-section">
+      <h2>表示と確認</h2>
+      <p>スコアリング結果は以下の2箇所で確認できます。</p>
+      <ul>
+        <li><b>地図左下のランキングパネル</b> — 施設名・総合スコア・距離を一覧表示。クリックで地図を移動</li>
+        <li><b>地図上のマーカーのポップアップ</b> — 施設名・スコア内訳（距離/テキスト）・OSMタグ情報を表示</li>
+      </ul>
+      <p>マーカーは総合スコアの上位から #1(金) #2(銀) #3(銅) #4-5(青系) の番号付きピンで表示されます。</p>
+
+      <div class="note-box">
+        <b>上位5件の制限:</b> 候補が多数ヒットしても表示は5件に限定されます。
+        これは地図の視認性とOverpass APIの結果量を考慮した設計です。
+      </div>
+    </div>
+
+    <a href="index.html" class="back-link">&larr; トップに戻る</a>
+  </div>
+</body>
+</html>

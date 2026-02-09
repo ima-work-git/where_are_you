@@ -188,27 +188,6 @@
       color: #999;
       font-weight: 700;
     }
-    .score-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      margin: 12px 0;
-    }
-    .score-table th {
-      background: #2c3e50;
-      color: #fff;
-      padding: 8px 12px;
-      text-align: center;
-      font-weight: 600;
-    }
-    .score-table td {
-      padding: 6px 12px;
-      border-bottom: 1px solid #eee;
-      text-align: center;
-    }
-    .score-table tr:nth-child(even) td {
-      background: #f9f9f9;
-    }
     h3.sub-heading {
       font-size: 14px;
       margin: 20px 0 8px;
@@ -393,73 +372,14 @@
       </div>
     </div>
 
-    <!-- ========== スコアリング ========== -->
+    <!-- ========== スコアリング（概要のみ） ========== -->
     <div class="guide-section">
-      <h2>スコアリング（上位5件の選出ロジック）</h2>
-
-      <p>検索でヒットした全候補に<b>総合スコア</b>を付け、上位5件だけを表示します。</p>
-
+      <h2>スコアリング</h2>
+      <p>検索でヒットした全候補に<b>総合スコア</b>を付け、上位5件だけを地図とランキングパネルに表示します。</p>
       <div class="flow-box">
-        <p><b>総合スコア = 近距離ボーナス(0-100) &times; 40% + テキスト一致度(0-100) &times; 60%</b></p>
+        <p><b>総合スコア = 近距離スコア(0-100) &times; 40% + テキストスコア(0-100) &times; 60%</b></p>
       </div>
-
-      <h3 class="sub-heading">近距離ボーナス（40%配分）</h3>
-      <p>通報者の位置からの距離を、GPS誤差円を基準にした段階評価で採点します。</p>
-      <table class="score-table">
-        <tr><th>距離</th><th>スコア</th></tr>
-        <tr><td>誤差円内</td><td>100</td></tr>
-        <tr><td>誤差円 x 1〜2倍</td><td>80</td></tr>
-        <tr><td>誤差円 x 2〜3倍</td><td>60</td></tr>
-        <tr><td>誤差円 x 3〜4倍</td><td>40</td></tr>
-        <tr><td>誤差円 x 4〜5倍</td><td>20</td></tr>
-        <tr><td>誤差円 x 5倍超</td><td>0</td></tr>
-      </table>
-
-      <h3 class="sub-heading">テキスト一致度（60%配分）</h3>
-      <p>辞書マッチ・固有名詞とも<b>同一ロジック</b>でスコアリングします。<br>
-         POIのタグ値に検索ラベルがどれだけ一致するかを「タグ重要度 &times; マッチ品質」で評価します。</p>
-
-      <table class="tag-table">
-        <tr><th>タグ</th><th>重要度</th><th>例</th></tr>
-        <tr><td>name</td><td>1.0（最高）</td><td>正式名称に一致</td></tr>
-        <tr><td>brand</td><td>0.85</td><td>ブランド名に一致</td></tr>
-        <tr><td>operator</td><td>0.75</td><td>運営者名に一致</td></tr>
-        <tr><td>alt_name / short_name</td><td>0.7</td><td>別名・略称に一致</td></tr>
-        <tr><td>name:* (言語別)</td><td>0.65</td><td>多言語名に一致</td></tr>
-        <tr><td>その他のタグ</td><td>0.3</td><td>説明文等に一致</td></tr>
-      </table>
-      <table class="tag-table" style="margin-top:8px">
-        <tr><th>マッチ品質</th><th>倍率</th><th>例</th></tr>
-        <tr><td>完全一致</td><td>1.0</td><td>「めんぱち」= name:「めんぱち」</td></tr>
-        <tr><td>前方一致</td><td>0.9</td><td>「めんぱち」= name:「めんぱち 川崎店」の先頭</td></tr>
-        <tr><td>含有一致</td><td>0.5 + 長さ比率 x 0.3</td><td>「めんぱち」が name:「居酒屋めんぱち本店」に含有</td></tr>
-      </table>
-
-      <p style="margin-top:12px"><b>辞書マッチでテキスト一致なしの場合：</b>50点<br>
-         カテゴリタグ（shop=convenience等）のみでヒットし、POI名にラベルを含まない場合。<br>
-         例: 「コンビニ」で検索 → shop=convenience のPOIがヒットしたが、名前は「セブン-イレブン」</p>
-
-      <div class="example-box">
-        <span class="label">具体例 1: 辞書マッチ（ブランド名一致）</span>
-        検索語: 「セブンイレブン」(辞書) / 候補: name=「セブン-イレブン 武蔵小杉店」 / 距離: 誤差円内<br>
-        テキスト = name(1.0) &times; 前方一致(0.9) = 90点<br>
-        距離 = 100点<br>
-        <b>総合 = 100 &times; 0.4 + 90 &times; 0.6 = 94点</b>
-      </div>
-      <div class="example-box">
-        <span class="label">具体例 2: 辞書マッチ（カテゴリのみ）</span>
-        検索語: 「コンビニ」(辞書) / 候補: name=「ファミリーマート」(shop=convenience) / 距離: 誤差円 x2<br>
-        テキスト = 50点（POI名に「コンビニ」を含まないがカテゴリタグ一致）<br>
-        距離 = 80点<br>
-        <b>総合 = 80 &times; 0.4 + 50 &times; 0.6 = 62点</b>
-      </div>
-      <div class="example-box">
-        <span class="label">具体例 3: 固有名詞</span>
-        検索語: 「めんぱち」 / 候補: name=「居酒屋めんぱち本店」 / 距離: 誤差円内<br>
-        テキスト = name(1.0) &times; 含有(0.5 + 4/9 &times; 0.3 = 0.63) = 63点<br>
-        距離 = 100点<br>
-        <b>総合 = 100 &times; 0.4 + 63 &times; 0.6 = 78点</b>
-      </div>
+      <p>詳しい計算ロジック・具体例は <a href="scoring.html"><b>スコアリングについて</b></a> をご覧ください。</p>
     </div>
 
     <!-- ========== 辞書キーワード一覧 ========== -->
