@@ -342,8 +342,8 @@
       <p>「セブン」「マック」「交番」「公園」など約100個の登録キーワードに最適なOSMタグで検索します。</p>
       <p>Overpass APIに送るクエリは<b>2種類を1つのクエリ内で同時実行</b>します：</p>
       <ul>
-        <li><b>タグ検索</b> — <code>[amenity=restaurant]["name"~"寿司"]</code> のようにOSMタグで絞り込み</li>
-        <li><b>全タグ横断検索</b> — ラベル名（例:「寿司屋」）のかなバリアント <code>[~"."~"寿司屋|すしや|スシヤ"]</code> でname/brand/alt_name等すべてのタグを対象に検索</li>
+        <li><b>タグ検索</b> — <code>[amenity=restaurant]["name"~"寿司"]</code> のようにOSMタグ種別で絞り込み</li>
+        <li><b>全タグ横断検索</b> — ラベル名（例:「寿司屋」）のかなバリアント <code>[~"."~"寿司屋|すしや|スシヤ"]</code> でname, brand, operator, alt_name等<b>すべてのタグ</b>を対象に検索。タグ種別が不正確なOSMエントリも漏れなく拾える</li>
       </ul>
       <div class="example-box">
         <span class="label">例: 「すし屋が見える」</span>

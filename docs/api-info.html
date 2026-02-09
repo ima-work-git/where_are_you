@@ -296,7 +296,7 @@
 
           <dt>本システムでの使い方</dt>
           <dd>
-            <b>1. 辞書マッチ検索</b> — OSMタグ（amenity, shop等）で施設を種別検索 + ラベル名で全タグ横断検索<br>
+            <b>1. 辞書マッチ検索</b> — OSMタグ（amenity, shop等）で施設を種別検索 + ラベル名で <code>[~"."~"label"]</code> 全タグ横断検索（name, brand, alt_name等すべて対象）<br>
             <b>2. 固有名詞検索</b> — <code>[~"."~"keyword"]</code> で全タグの値を正規表現マッチ
           </dd>
 
@@ -306,8 +306,8 @@
 (
   node[shop=convenience]["name"~"セブン"](around:250,35.57,139.66);
   way[shop=convenience]["name"~"セブン"](around:250,35.57,139.66);
-  node["name"~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
-  way["name"~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
+  node[~"."~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
+  way[~"."~"セブンイレブン|せぶんいれぶん|セブンイレブン",i](around:250,35.57,139.66);
 );
 out center body;</div>
           </dd>
