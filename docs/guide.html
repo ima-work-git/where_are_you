@@ -36,12 +36,8 @@
       padding-left: 12px;
       margin-bottom: 16px;
     }
-    .guide-section h2.test-title {
-      border-left-color: #8e44ad;
-    }
-    .guide-section h2.flow-title {
-      border-left-color: #e67e22;
-    }
+    .guide-section h2.test-title { border-left-color: #8e44ad; }
+    .guide-section h2.flow-title { border-left-color: #e67e22; }
     .guide-section p, .guide-section li {
       font-size: 14px;
       line-height: 1.8;
@@ -51,9 +47,7 @@
       padding-left: 20px;
       margin: 8px 0;
     }
-    .guide-section li {
-      margin-bottom: 6px;
-    }
+    .guide-section li { margin-bottom: 6px; }
     .step-list {
       counter-reset: step;
       list-style: none;
@@ -69,10 +63,8 @@
     .step-list li::before {
       content: counter(step);
       position: absolute;
-      left: 0;
-      top: 0;
-      width: 32px;
-      height: 32px;
+      left: 0; top: 0;
+      width: 32px; height: 32px;
       border-radius: 50%;
       background: #2980b9;
       color: #fff;
@@ -82,12 +74,8 @@
       align-items: center;
       justify-content: center;
     }
-    .step-list.test-steps li::before {
-      background: #8e44ad;
-    }
-    .step-list.flow-steps li::before {
-      background: #e67e22;
-    }
+    .step-list.test-steps li::before { background: #8e44ad; }
+    .step-list.flow-steps li::before { background: #e67e22; }
     .example-box {
       background: #f8f9fa;
       border: 1px solid #e0e0e0;
@@ -127,9 +115,7 @@
       padding: 8px 12px;
       border-bottom: 1px solid #eee;
     }
-    .tag-table tr:nth-child(even) td {
-      background: #f9f9f9;
-    }
+    .tag-table tr:nth-child(even) td { background: #f9f9f9; }
     .highlight-box {
       background: #f0e6f6;
       border: 2px solid #8e44ad;
@@ -184,16 +170,43 @@
     .flow-diagram .fd-box.overpass { background: #e67e22; }
     .flow-diagram .fd-box.nominatim { background: #c0392b; }
     .flow-diagram .fd-box.score { background: #2c3e50; }
-    .flow-diagram .fd-arrow {
-      color: #999;
-      font-weight: 700;
-    }
+    .flow-diagram .fd-arrow { color: #999; font-weight: 700; }
     h3.sub-heading {
       font-size: 14px;
       margin: 20px 0 8px;
       color: #333;
       padding-left: 4px;
     }
+    .status-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .status-tag.ok { background: #d5f5e3; color: #1e8449; }
+    .status-tag.wip { background: #fdebd0; color: #b9770e; }
+    .feature-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .feature-table th {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .feature-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+    }
+    .feature-table tr:nth-child(even) td { background: #f9f9f9; }
   </style>
 </head>
 <body>
@@ -201,31 +214,73 @@
     <a href="index.html" class="back-link">&larr; トップに戻る</a>
 
     <h1>消防指令台 位置特定システム - 使い方</h1>
-    <p class="subtitle">通報者のスマホGPSとチャットから施設を自動特定するシステム</p>
+    <p class="subtitle">通報者のスマホGPSとチャットから位置を自動特定するシステム</p>
 
-    <!-- ========== 概要 ========== -->
+    <!-- ===================================================
+         1. 全体像 — このシステムは何か
+         =================================================== -->
     <div class="guide-section">
-      <h2>システム概要</h2>
-      <p>通報者のスマホから GPS 位置情報を取得し、チャットの発言内容から周辺施設を自動検索・地図表示するシステムです。</p>
-      <ul>
-        <li><b>指令台（PC）</b> — 地図表示・チャット・施設検索を操作</li>
-        <li><b>通報者（スマホ）</b> — GPS送信・チャット応答</li>
-        <li>接続は P2P（PeerJS/WebRTC）、サーバー不要</li>
-      </ul>
+      <h2>このシステムでできること</h2>
+      <p>通報者のスマホから<b>GPS位置</b>を取得し、チャットの発言から<b>周辺施設を自動検索</b>して地図に表示します。
+        指令台と通報者はP2P（WebRTC）で直接接続するため、外部サーバーは不要です。</p>
+
+      <table class="feature-table">
+        <tr><th>機能</th><th>概要</th><th>状態</th></tr>
+        <tr>
+          <td><b>GPS位置取得</b></td>
+          <td>通報者のスマホからリアルタイムにGPS座標と精度を取得し、誤差円で表示</td>
+          <td><span class="status-tag ok">実装済</span></td>
+        </tr>
+        <tr>
+          <td><b>施設キーワード検索</b></td>
+          <td>「セブンの横」「公園が見える」等のチャット発言から施設を自動検索。約100語の辞書＋形態素解析で対応</td>
+          <td><span class="status-tag ok">実装済</span></td>
+        </tr>
+        <tr>
+          <td><b>固有名詞検索</b></td>
+          <td>辞書にない店名・地名もOverpass全タグ検索＋Nominatim読み仮名解決で検索</td>
+          <td><span class="status-tag ok">実装済</span></td>
+        </tr>
+        <tr>
+          <td><b>複数キーワード絞り込み</b></td>
+          <td>「薬局とパン屋がある」のように複数施設が近接する地点をハイライト</td>
+          <td><span class="status-tag ok">実装済</span></td>
+        </tr>
+        <tr>
+          <td><b>スコアリング</b></td>
+          <td>距離(40%)＋テキスト一致度(60%)で候補を自動ランキングし上位5件を表示</td>
+          <td><span class="status-tag ok">実装済</span></td>
+        </tr>
+        <tr>
+          <td><b>住所ジオコーディング</b></td>
+          <td>通報者が番地号付き住所をチャットした場合に地図上に表示する機能</td>
+          <td><span class="status-tag wip">開発中</span></td>
+        </tr>
+      </table>
     </div>
 
-    <!-- ========== 通常モード ========== -->
+    <!-- ===================================================
+         2. 操作方法 — 通常モード
+         =================================================== -->
     <div class="guide-section">
-      <h2>通常モード（実際の通報対応）</h2>
+      <h2>基本的な使い方</h2>
       <ol class="step-list">
         <li><b>「新規セッション作成」</b>を押す</li>
         <li><b>「通報者リンクをコピー」</b>を押して、通報者のスマホにリンクを送る（SMS・LINE等）</li>
         <li>通報者がリンクを開くと<b>自動でGPS位置が地図に表示</b>される（赤い誤差円）</li>
         <li>チャットで会話しながら施設を特定。発言内容は<b>自動でOSM検索</b>される</li>
       </ol>
+
+      <div class="example-box">
+        <span class="label">使用例</span>
+        通報者: <code>セブンと居酒屋が見えます</code><br>
+        <span class="arrow">&rarr;</span> GPS位置周辺のセブンイレブンと居酒屋を自動検索。両方が近接する地点がハイライトされる
+      </div>
     </div>
 
-    <!-- ========== 試験モード ========== -->
+    <!-- ===================================================
+         3. 操作方法 — 試験モード
+         =================================================== -->
     <div class="guide-section">
       <h2 class="test-title">試験モード（P2P接続なしで動作確認）</h2>
 
@@ -240,21 +295,41 @@
         <li><b>スライダー</b>で誤差半径を調整（5m〜500m）。検索範囲は「誤差 x 5」</li>
         <li>チャット欄にキーワードを入力して Enter。<b>自動でOSM検索が実行</b>される</li>
       </ol>
-
-      <div class="example-box">
-        <span class="label">試験例</span>
-        位置: 向河原駅付近をクリック / 誤差: 50m（検索範囲250m）<br>
-        チャット入力: <code>セブンと居酒屋が見えます</code><br>
-        <span class="arrow">&rarr;</span> 250m圏内のセブンイレブンと居酒屋がマーカー表示。両方が近接する地点がハイライトされる
-      </div>
-
-      <p>試験モード中も、セッションバーの「試験モード」ボタンでパネルの表示/非表示を切り替えられます。
-         位置を変えたい場合は再度地図をクリックするだけです。</p>
     </div>
 
-    <!-- ========== 処理フロー ========== -->
+    <!-- ===================================================
+         4. 地図の見方
+         =================================================== -->
     <div class="guide-section">
-      <h2 class="flow-title">処理フロー全体図</h2>
+      <h2>地図の見方</h2>
+      <table class="tag-table">
+        <tr><th>表示</th><th>意味</th></tr>
+        <tr>
+          <td><b style="color:#e74c3c">赤い円（破線）</b></td>
+          <td>GPS誤差円 — 通報者の位置精度に応じた範囲</td>
+        </tr>
+        <tr>
+          <td><b style="color:#f39c12">黄色い円（破線）</b></td>
+          <td>POI検索範囲（GPS誤差 x 5）</td>
+        </tr>
+        <tr>
+          <td><b style="color:#e67e22">番号付き丸ピン</b></td>
+          <td>スコア上位の施設候補（#1=金, #2=銀, #3=銅, #4-5=青系）</td>
+        </tr>
+        <tr>
+          <td><b style="color:#27ae60">緑の円（破線）</b></td>
+          <td>複数キーワードが近接する地点のハイライト</td>
+        </tr>
+      </table>
+      <p>マーカーをクリックすると<b>スコア内訳</b>（距離/テキスト）、施設名、<b>OSMタグ情報</b>が表示されます。</p>
+      <p>地図左下の<b>候補地点パネル</b>で施設名をクリックすると、その地点にジャンプします。</p>
+    </div>
+
+    <!-- ===================================================
+         5. 処理フロー（中レベル）
+         =================================================== -->
+    <div class="guide-section">
+      <h2 class="flow-title">処理フロー</h2>
 
       <div class="flow-box">
         <p>チャットに入力されたテキストが、以下のパイプラインで自動処理されます。<br>
@@ -265,24 +340,10 @@
         <div class="fd-step">
           <span class="fd-box">チャット入力</span>
           <span class="fd-arrow">&rarr;</span>
-          <span>「川崎市中原区小杉町1-2-3のセブンの横にすし屋が見えます」</span>
+          <span>「セブンの横にすし屋が見えます。めんぱちの近く」</span>
         </div>
         <div class="fd-step" style="margin-left:40px">
           <span class="fd-arrow">&darr;</span>
-        </div>
-        <div class="fd-step">
-          <span class="fd-box" style="background:#e91e63">住所検出</span>
-          <span class="fd-arrow">&rarr;</span>
-          <span>「川崎市中原区小杉町1-2-3」を検出 → テキストから除去</span>
-        </div>
-        <div class="fd-step">
-          <span class="fd-box nominatim">Nominatim</span>
-          <span class="fd-arrow">&rarr;</span>
-          <span>住所ジオコーディング → <b>位置+範囲</b>を地図に表示（並行実行）</span>
-        </div>
-        <div class="fd-step" style="margin-left:40px">
-          <span class="fd-arrow">&darr;</span>
-          <span style="font-size:11px;color:#888">（住所除去後のテキストで以下を実行）</span>
         </div>
         <div class="fd-step">
           <span class="fd-box dict">辞書マッチ</span>
@@ -292,7 +353,7 @@
         <div class="fd-step">
           <span class="fd-box morph">形態素解析</span>
           <span class="fd-arrow">&rarr;</span>
-          <span>固有名詞を抽出（辞書にない語）</span>
+          <span>「めんぱち」を固有名詞として抽出（辞書にない語）</span>
         </div>
         <div class="fd-step" style="margin-left:40px">
           <span class="fd-arrow">&darr;</span>
@@ -300,7 +361,7 @@
         <div class="fd-step">
           <span class="fd-box overpass">Overpass API</span>
           <span class="fd-arrow">&rarr;</span>
-          <span>辞書・固有名詞とも全タグ横断検索</span>
+          <span>辞書キーワード・固有名詞とも全タグ横断検索</span>
         </div>
         <div class="fd-step">
           <span class="fd-box nominatim">Nominatim</span>
@@ -318,88 +379,82 @@
       </div>
 
       <ol class="step-list flow-steps">
-        <li><b>住所検出</b> — 全角数字→半角変換後、正規表現で日本の住所パターン（市区＋番地号）を検出。検出された住所はテキストから除去し、Nominatimでジオコーディング → マーカー＋範囲矩形で表示</li>
-        <li><b>テキスト前処理</b> — フィラー除去（「えーっと」「あのー」等）、句読点・空白の正規化（住所除去後のテキストに対して実行）</li>
-        <li><b>辞書マッチ</b> — 約100個の登録キーワードとパターン照合。<b>かな正規化</b>（ひらがな/カタカナ/原文の3形式で照合）により「すし」=「スシ」等の表記揺れを吸収</li>
-        <li><b>形態素解析</b> — TinySegmenter でテキストを分割 → ストップワード（助詞・動詞・副詞等200語）除去 → 隣接する非ストップ語を結合して固有名詞を復元</li>
-        <li><b>Overpass API 検索</b> — 辞書マッチ: OSMタグ検索 + サブタグ検索（cuisine等）+ ラベル名の全タグ横断検索（かなバリアント付き）を1クエリで実行。固有名詞: 全タグ横断検索 <code>[~"."~"keyword"]</code></li>
-        <li><b>Nominatim 検索</b>（固有名詞のみ）— OSMのジオコーディングAPIで読み仮名から漢字地名を解決。Overpassと<b>並行実行</b>し、結果をマージ（50m以内の重複は除去）</li>
-        <li><b>スコアリング &amp; ランキング</b> — 全候補に総合スコアを付け、降順ソートして<b>上位5件のみ</b>を地図とランキングパネルに表示</li>
+        <li><b>テキスト前処理</b> — フィラー除去（「えーっと」「あのー」等）、句読点・空白の正規化</li>
+        <li><b>辞書マッチ</b> — 約100個のキーワードとパターン照合。<b>かな正規化</b>（ひらがな/カタカナ/原文の3形式で照合）で表記揺れを吸収</li>
+        <li><b>形態素解析</b> — TinySegmenter でテキスト分割 → ストップワード除去 → 隣接語を結合して固有名詞を復元</li>
+        <li><b>Overpass API 検索</b> — 辞書マッチ: OSMタグ検索 + サブタグ検索（cuisine等）+ 全タグ横断検索。固有名詞: 全タグ横断検索</li>
+        <li><b>Nominatim 検索</b>（固有名詞のみ）— 読み仮名から漢字地名を解決。Overpassと<b>並行実行</b>、50m以内の重複は除去</li>
+        <li><b>スコアリング &amp; ランキング</b> — 全候補に総合スコアを付け、<b>上位5件</b>を地図とパネルに表示</li>
       </ol>
     </div>
 
-    <!-- ========== 検索ロジック詳細 ========== -->
+    <!-- ===================================================
+         6. 検索ロジック詳細
+         =================================================== -->
     <div class="guide-section">
       <h2>検索ロジック詳細</h2>
 
-      <h3 class="sub-heading">1. 辞書マッチ検索（高精度）</h3>
-      <p>「セブン」「マック」「交番」「公園」など約100個の登録キーワードに最適なOSMタグで検索します。</p>
-      <p>Overpass APIに送るクエリは<b>最大3種類を1つのクエリ内で同時実行</b>します：</p>
+      <h3 class="sub-heading">辞書マッチ検索</h3>
+      <p>「セブン」「マック」「交番」「公園」など約100個の登録キーワードに最適なOSMタグで検索します。
+        Overpass APIに送るクエリは<b>最大3種類を1つのクエリ内で同時実行</b>します：</p>
       <ul>
         <li><b>タグ検索</b> — <code>[amenity=restaurant]["name"~"寿司"]</code> のようにOSMタグ種別で絞り込み</li>
-        <li><b>サブタグ検索</b> — 飲食カテゴリでは <code>[cuisine=udon]</code> 等の業種タグでも検索。名前に「うどん」を含まない「丸亀製麺」等もヒットする</li>
-        <li><b>全タグ横断検索</b> — ラベル名（例:「寿司屋」）のかなバリアント <code>[~"."~"寿司屋|すしや|スシヤ"]</code> でname, brand, operator, alt_name等<b>すべてのタグ</b>を対象に検索。タグ種別が不正確なOSMエントリも漏れなく拾える</li>
+        <li><b>サブタグ検索</b> — 飲食カテゴリでは <code>[cuisine~"udon"]</code> 等の業種タグでも検索。名前に「うどん」を含まない「丸亀製麺」等もヒット</li>
+        <li><b>全タグ横断検索</b> — ラベル名のかなバリアント <code>[~"."~"寿司屋|すしや|スシヤ"]</code> でname, brand, alt_name等<b>すべてのタグ</b>を対象に検索</li>
       </ul>
       <div class="example-box">
         <span class="label">例: 「うどん屋が見える」</span>
         辞書パターン <code>/うどん(?:屋)?/</code> にマッチ<br>
-        <span class="arrow">&rarr;</span> タグ検索: <code>[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"]</code>（はなまるうどん等）<br>
-        <span class="arrow">&rarr;</span> サブタグ検索: <code>[amenity~"restaurant|fast_food"][cuisine~"udon"]</code>（丸亀製麺等）<br>
+        <span class="arrow">&rarr;</span> タグ検索: <code>[amenity~"restaurant|fast_food"]["name"~"うどん|饂飩"]</code><br>
+        <span class="arrow">&rarr;</span> サブタグ検索: <code>[cuisine~"udon"]</code>（丸亀製麺等）<br>
         <span class="arrow">&rarr;</span> 全タグ横断: <code>[~"."~"うどん屋|うどんや|ウドンヤ"]</code>
       </div>
 
-      <h3 class="sub-heading">2. かな正規化（表記揺れ対策）</h3>
-      <p>ひらがな・カタカナをUnicodeコードポイント変換で相互変換し、<b>自動的にすべての表記形で検索</b>します。</p>
+      <h3 class="sub-heading">かな正規化（表記揺れ対策）</h3>
+      <p>ひらがな・カタカナを相互変換し、<b>すべての表記形で検索</b>します。</p>
       <table class="tag-table">
-        <tr><th>入力</th><th>自動生成されるバリアント</th><th>結果</th></tr>
-        <tr><td>すし屋</td><td>すし屋 / スシ屋</td><td>同じ検索結果</td></tr>
-        <tr><td>スタバ</td><td>スタバ / すたば</td><td>同じ検索結果</td></tr>
-        <tr><td>カフェ</td><td>カフェ / かふぇ</td><td>同じ検索結果</td></tr>
-        <tr><td>らーめん</td><td>らーめん / ラーメン</td><td>同じ検索結果</td></tr>
+        <tr><th>入力</th><th>自動バリアント</th></tr>
+        <tr><td>すし屋</td><td>すし屋 / スシ屋</td></tr>
+        <tr><td>スタバ</td><td>スタバ / すたば</td></tr>
+        <tr><td>らーめん</td><td>らーめん / ラーメン</td></tr>
       </table>
-      <p>適用箇所: 辞書パターンマッチ、Overpassクエリ、スコア計算、固有名詞の辞書除外判定</p>
 
-      <h3 class="sub-heading">3. 固有名詞検索（形態素解析 + Nominatim）</h3>
-      <p>辞書にないキーワードは TinySegmenter（形態素解析）で自動抽出し、<b>2つのAPIを並行実行</b>します：</p>
+      <h3 class="sub-heading">固有名詞検索（形態素解析 + Nominatim）</h3>
+      <p>辞書にないキーワードは形態素解析で自動抽出し、<b>2つのAPIを並行実行</b>します：</p>
       <ul>
-        <li><b>Overpass 全タグ横断検索</b> — <code>[~"."~"keyword"]</code> でOSMの全タグ（name, brand, operator, alt_name, 住所等）を正規表現マッチ。かなバリアントも自動生成</li>
-        <li><b>Nominatim ジオコーディング</b> — OSM内部の読み仮名辞書を利用して、<b>ひらがな → 漢字地名</b>を解決</li>
+        <li><b>Overpass 全タグ横断検索</b> — <code>[~"."~"keyword"]</code> でOSM全タグを正規表現マッチ</li>
+        <li><b>Nominatim</b> — 読み仮名辞書で<b>ひらがな → 漢字地名</b>を解決</li>
       </ul>
       <div class="example-box">
         <span class="label">例: 「むさしこすぎ駅の近く」</span>
-        形態素解析で「むさしこすぎ駅」を抽出<br>
-        <span class="arrow">&rarr;</span> Overpass: <code>[~"."~"むさしこすぎ駅|ムサシコスギ駅"]</code>（かな読みタグにヒット）<br>
-        <span class="arrow">&rarr;</span> Nominatim: 「むさしこすぎ駅」→ <b>武蔵小杉駅</b> を解決して座標を返す<br>
-        <span class="arrow">&rarr;</span> 両方の結果をマージ（50m以内の重複は自動除去）
-      </div>
-      <div class="example-box">
-        <span class="label">例: 「めんぱちが見えます」</span>
-        形態素解析で「めんぱち」を抽出（辞書にない語）<br>
-        <span class="arrow">&rarr;</span> Overpass: 全タグから <code>"めんぱち|メンパチ"</code> を検索<br>
-        <span class="arrow">&rarr;</span> Nominatim: 「めんぱち」で地名検索（ヒットすれば追加）<br>
-        <span class="arrow">&rarr;</span> name タグに「めんぱち」を含む店舗がヒット
+        <span class="arrow">&rarr;</span> Overpass: <code>[~"."~"むさしこすぎ駅|ムサシコスギ駅"]</code><br>
+        <span class="arrow">&rarr;</span> Nominatim: 「むさしこすぎ駅」→ <b>武蔵小杉駅</b> を解決<br>
+        <span class="arrow">&rarr;</span> 両方の結果をマージ（50m以内の重複は除去）
       </div>
 
-      <h3 class="sub-heading">4. 複数キーワード絞り込み</h3>
-      <p>複数施設が発言に含まれると、全カテゴリが近接する地点を自動でハイライトします。</p>
+      <h3 class="sub-heading">複数キーワード絞り込み</h3>
+      <p>複数施設が発言に含まれると、全カテゴリが近接する地点を<b>緑色の円でハイライト</b>します。</p>
       <div class="example-box">
         <span class="label">例: 「薬局とパン屋がある」</span>
-        「薬局」と「パン屋」をそれぞれ検索<br>
-        <span class="arrow">&rarr;</span> 薬局とパン屋の両方が近くにある地点を<b>緑色の円でハイライト</b>
+        <span class="arrow">&rarr;</span> 薬局とパン屋をそれぞれ検索 → 両方が近くにある地点をハイライト
       </div>
     </div>
 
-    <!-- ========== スコアリング（概要のみ） ========== -->
+    <!-- ===================================================
+         7. スコアリング
+         =================================================== -->
     <div class="guide-section">
       <h2>スコアリング</h2>
-      <p>検索でヒットした全候補に<b>総合スコア</b>を付け、上位5件だけを地図とランキングパネルに表示します。</p>
+      <p>検索ヒット全候補に<b>総合スコア</b>を付け、上位5件だけを地図とランキングパネルに表示します。</p>
       <div class="flow-box">
         <p><b>総合スコア = 近距離スコア(0-100) &times; 40% + テキストスコア(0-100) &times; 60%</b></p>
       </div>
       <p>詳しい計算ロジック・具体例は <a href="scoring.html"><b>スコアリングについて</b></a> をご覧ください。</p>
     </div>
 
-    <!-- ========== 辞書キーワード一覧 ========== -->
+    <!-- ===================================================
+         8. 登録キーワード一覧
+         =================================================== -->
     <div class="guide-section">
       <h2>登録済みキーワード一覧（抜粋）</h2>
       <table class="tag-table">
@@ -425,72 +480,32 @@
       </p>
     </div>
 
-    <!-- ========== 住所検出 ========== -->
-    <div class="guide-section">
-      <h2 style="border-left-color:#e91e63">住所検出・ジオコーディング</h2>
-      <p>通報者がチャットで<b>番地号付きの住所</b>を伝えた場合、自動で住所を検出して地図上に表示します。</p>
-
-      <h3 class="sub-heading">検出される住所パターン</h3>
+    <!-- ===================================================
+         9. 住所ジオコーディング（開発中）
+         =================================================== -->
+    <div class="guide-section" style="opacity:0.75">
+      <h2 style="border-left-color:#b9770e">住所ジオコーディング <span class="status-tag wip">開発中</span></h2>
+      <p>通報者がチャットで番地号付きの住所を伝えた場合に、自動で住所を検出して地図上に表示する機能です。<br>
+        <b>現在開発中のため、正しく動作しない場合があります。</b></p>
       <ul>
-        <li><code>○○市○○区○○町1-2-3</code>（ハイフン区切り）</li>
-        <li><code>○○市○○1丁目2番3号</code>（丁目番号表記）</li>
-        <li><code>○○市○○123番地4</code>（番地表記）</li>
-        <li>都道府県はあってもなくても可</li>
-        <li>全角数字（１２３）は自動で半角に変換</li>
+        <li>対応予定パターン: <code>○○市○○町1-2-3</code> / <code>○○市○○1丁目2番3号</code> / <code>○○市○○1741</code> 等</li>
+        <li>全角数字・各種ハイフンは自動で半角に変換</li>
+        <li>Nominatim（OSMジオコーディングAPI）で座標に変換し、マゼンタ色のマーカー+範囲矩形で表示予定</li>
       </ul>
-
-      <h3 class="sub-heading">表示方法</h3>
-      <p>住所は緯度経度と1対1に対応するため、ジオコーディング結果は<b>1件のみ</b>を地図に表示します。</p>
-      <ul>
-        <li><b style="color:#e91e63">マゼンタの丸ピン（「住所」）</b> — ジオコーディングで特定された地点</li>
-        <li><b style="color:#e91e63">マゼンタ破線の矩形</b> — その住所が示す範囲。地図は自動でこの範囲にフィット</li>
-        <li>ピンをクリックすると住所の詳細情報（Nominatimの正式表記）を表示</li>
-      </ul>
-
-      <h3 class="sub-heading">住所 + 施設キーワードの同時処理</h3>
-      <p>住所と施設キーワードが同じメッセージに含まれる場合、<b>住所の検出とPOI検索を並行実行</b>します。</p>
-      <div class="example-box">
-        <span class="label">例: 「川崎市中原区小杉町1-2-3のセブンの前にいます」</span>
-        <span class="arrow">&rarr;</span> 住所「川崎市中原区小杉町1-2-3」を検出 → ジオコーディング → マゼンタマーカー+範囲表示<br>
-        <span class="arrow">&rarr;</span> 住所を除去した「のセブンの前にいます」で「セブン」を辞書マッチ → POI検索<br>
-        <span class="arrow">&rarr;</span> 住所マーカーとPOI施設マーカーが両方表示される
-      </div>
-      <div class="example-box">
-        <span class="label">例: 「渋谷区神南1-2-3にいます」（施設キーワードなし）</span>
-        <span class="arrow">&rarr;</span> 住所のみ検出 → ジオコーディング → マゼンタマーカー+範囲表示<br>
-        <span class="arrow">&rarr;</span> 施設キーワードがないためPOI検索はスキップ
-      </div>
-
-      <div class="highlight-box" style="border-color:#e91e63; background:#fce4ec">
-        <p><b>注意:</b> ジオコーディング精度はOSMデータの登録状況に依存します。
-        番地号レベルのデータが登録されていない地域では、町丁目レベルの範囲が表示される場合があります。</p>
-      </div>
     </div>
 
-    <!-- ========== POIマーカー ========== -->
-    <div class="guide-section">
-      <h2>マーカーの見方</h2>
-      <ul>
-        <li><b style="color:#e74c3c">赤い円（破線）</b> — GPS誤差円（通報者の位置精度）</li>
-        <li><b style="color:#f39c12">黄色い円（破線）</b> — POI検索範囲（誤差 x 5）</li>
-        <li><b style="color:#e67e22">番号付き丸ピン</b> — スコア上位の候補地点（#1=金, #2=銀, #3=銅, #4-5=青系）</li>
-        <li><b style="color:#27ae60">緑の円（破線）</b> — 複数キーワードが近接する地点のハイライト</li>
-        <li><b style="color:#e91e63">マゼンタの丸ピン（「住所」）+ 矩形</b> — 通報者が申告した住所のジオコーディング結果。矩形はその住所の範囲</li>
-      </ul>
-      <p>マーカーをクリックすると<b>スコア内訳</b>（距離/テキスト）、施設名、<b>OSMタグ情報</b>（amenity, shop, cuisine, 住所等）が表示されます。</p>
-      <p>地図左下の<b>候補地点パネル</b>で施設名をクリックすると、その地点に地図を移動できます。</p>
-    </div>
-
-    <!-- ========== 注意事項 ========== -->
+    <!-- ===================================================
+         10. 注意事項
+         =================================================== -->
     <div class="guide-section">
       <h2>注意事項</h2>
       <ul>
-        <li>施設データは <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> のボランティアデータに基づきます。登録されていない施設はヒットしません。</li>
-        <li>都市部は高密度にデータが揃っていますが、地方・山間部は少ない場合があります。</li>
-        <li>Nominatimの読み仮名解決は、OSMデータベース内に読みが登録されている地名・施設名が対象です。</li>
-        <li>新しい検索結果が出ると、前回のマーカーは自動で消去されます。</li>
-        <li>P2P接続はPeerJSの公開サーバーを利用しています。ネットワーク環境により接続が不安定な場合があります。</li>
-        <li>GPSの精度はスマホの機種・環境（屋内/屋外、天候）に依存します。</li>
+        <li>施設データは <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> のボランティアデータに基づきます。登録されていない施設はヒットしません</li>
+        <li>都市部は高密度にデータが揃っていますが、地方・山間部は少ない場合があります</li>
+        <li>Nominatimの読み仮名解決は、OSMデータベース内に読みが登録されている地名・施設名が対象です</li>
+        <li>新しい検索結果が出ると、前回のマーカーは自動で消去されます</li>
+        <li>P2P接続はPeerJSの公開サーバーを利用しています。ネットワーク環境により接続が不安定な場合があります</li>
+        <li>GPSの精度はスマホの機種・環境（屋内/屋外、天候）に依存します</li>
       </ul>
     </div>
 
