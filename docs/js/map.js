@@ -217,14 +217,39 @@ const MapModule = (() => {
 
   /**
    * 通報者申告住所のマーカーを表示（POIとは別レイヤー）
+   * boundingbox がある場合は範囲矩形も表示
+   * @param {number} lat
+   * @param {number} lng
+   * @param {string} address
+   * @param {string} displayName
+   * @param {Array|null} boundingbox - [south, north, west, east] or null
+   * @param {number} rank - 候補の順位 (1-based)
    */
-  function showAddressMarker(lat, lng, address, displayName) {
+  function showAddressMarker(lat, lng, address, displayName, boundingbox, rank) {
     clearAddressMarker();
 
+    // boundingbox 範囲矩形を表示
+    if (boundingbox && boundingbox.length === 4) {
+      const [south, north, west, east] = boundingbox;
+      const rect = L.rectangle(
+        [[south, west], [north, east]],
+        {
+          color: '#e91e63',
+          fillColor: '#e91e63',
+          fillOpacity: 0.1,
+          weight: 2,
+          dashArray: '6, 4',
+          interactive: false,
+        }
+      );
+      addressLayerGroup.addLayer(rect);
+    }
+
+    const rankLabel = rank ? `#${rank} ` : '';
     const marker = L.marker([lat, lng], {
       icon: L.divIcon({
         className: 'address-marker',
-        html: '<div class="address-pin">住所</div>',
+        html: `<div class="address-pin">${rank || '住所'}</div>`,
         iconSize: [40, 40],
         iconAnchor: [20, 20],
       }),
@@ -232,12 +257,12 @@ const MapModule = (() => {
     });
 
     marker.bindPopup(
-      '<strong style="color:#e91e63">[通報者申告住所]</strong><br>' +
+      '<strong style="color:#e91e63">[通報者申告住所] ' + rankLabel + '</strong><br>' +
       '<strong>' + escapePopup(address) + '</strong><br>' +
       '<span style="font-size:11px;color:#666">' + escapePopup(displayName) + '</span>'
     );
 
-    marker.bindTooltip(address, {
+    marker.bindTooltip(rankLabel + address, {
       permanent: true,
       direction: 'top',
       offset: [0, -22],
@@ -245,6 +270,65 @@ const MapModule = (() => {
     });
 
     addressLayerGroup.addLayer(marker);
+  }
+
+  /**
+   * 住所候補を複数表示（#1 は大きなマーカー+範囲、#2以降は小さなマーカー）
+   * @param {Array} candidates - [{lat, lng, address, displayName, boundingbox}, ...]
+   */
+  function showAddressCandidates(candidates) {
+    clearAddressMarker();
+    if (!candidates || candidates.length === 0) return;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
+      const rank = i + 1;
+      const isTop = (i === 0);
+
+      // #1 のみ boundingbox 範囲矩形を表示
+      if (isTop && c.boundingbox && c.boundingbox.length === 4) {
+        const [south, north, west, east] = c.boundingbox;
+        const rect = L.rectangle(
+          [[south, west], [north, east]],
+          {
+            color: '#e91e63',
+            fillColor: '#e91e63',
+            fillOpacity: 0.1,
+            weight: 2,
+            dashArray: '6, 4',
+            interactive: false,
+          }
+        );
+        addressLayerGroup.addLayer(rect);
+      }
+
+      const marker = L.marker([c.lat, c.lng], {
+        icon: L.divIcon({
+          className: 'address-marker',
+          html: isTop
+            ? `<div class="address-pin">${rank}</div>`
+            : `<div class="address-pin-sub">${rank}</div>`,
+          iconSize: isTop ? [40, 40] : [28, 28],
+          iconAnchor: isTop ? [20, 20] : [14, 14],
+        }),
+        zIndexOffset: 500 - i,
+      });
+
+      marker.bindPopup(
+        `<strong style="color:#e91e63">[住所候補 #${rank}]</strong><br>` +
+        '<strong>' + escapePopup(c.address) + '</strong><br>' +
+        '<span style="font-size:11px;color:#666">' + escapePopup(c.displayName) + '</span>'
+      );
+
+      marker.bindTooltip(`#${rank} ${c.address}`, {
+        permanent: isTop,
+        direction: 'top',
+        offset: isTop ? [0, -22] : [0, -16],
+        className: 'address-tooltip',
+      });
+
+      addressLayerGroup.addLayer(marker);
+    }
   }
 
   function clearAddressMarker() {
@@ -263,6 +347,6 @@ const MapModule = (() => {
     init, updateCallerLocation, getMap, invalidateSize,
     showSearchRadius, showPOIResults, clearPOIResults,
     showIntersectionCluster,
-    showAddressMarker, clearAddressMarker,
+    showAddressMarker, showAddressCandidates, clearAddressMarker,
   };
 })();

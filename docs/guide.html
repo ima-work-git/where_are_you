@@ -265,10 +265,24 @@
         <div class="fd-step">
           <span class="fd-box">チャット入力</span>
           <span class="fd-arrow">&rarr;</span>
-          <span>「セブンの横にすし屋が見えます。めんぱちの近く」</span>
+          <span>「川崎市中原区小杉町1-2-3のセブンの横にすし屋が見えます」</span>
         </div>
         <div class="fd-step" style="margin-left:40px">
           <span class="fd-arrow">&darr;</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box" style="background:#e91e63">住所検出</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>「川崎市中原区小杉町1-2-3」を検出 → テキストから除去</span>
+        </div>
+        <div class="fd-step">
+          <span class="fd-box nominatim">Nominatim</span>
+          <span class="fd-arrow">&rarr;</span>
+          <span>住所ジオコーディング → <b>候補+範囲</b>を地図に表示（並行実行）</span>
+        </div>
+        <div class="fd-step" style="margin-left:40px">
+          <span class="fd-arrow">&darr;</span>
+          <span style="font-size:11px;color:#888">（住所除去後のテキストで以下を実行）</span>
         </div>
         <div class="fd-step">
           <span class="fd-box dict">辞書マッチ</span>
@@ -278,7 +292,7 @@
         <div class="fd-step">
           <span class="fd-box morph">形態素解析</span>
           <span class="fd-arrow">&rarr;</span>
-          <span>「めんぱち」を固有名詞として抽出（辞書にない語）</span>
+          <span>固有名詞を抽出（辞書にない語）</span>
         </div>
         <div class="fd-step" style="margin-left:40px">
           <span class="fd-arrow">&darr;</span>
@@ -304,7 +318,8 @@
       </div>
 
       <ol class="step-list flow-steps">
-        <li><b>テキスト前処理</b> — フィラー除去（「えーっと」「あのー」等）、句読点・空白の正規化</li>
+        <li><b>住所検出</b> — 全角数字→半角変換後、正規表現で日本の住所パターン（市区＋番地号）を検出。検出された住所はテキストから除去し、Nominatimでジオコーディング（候補最大3件＋範囲矩形）</li>
+        <li><b>テキスト前処理</b> — フィラー除去（「えーっと」「あのー」等）、句読点・空白の正規化（住所除去後のテキストに対して実行）</li>
         <li><b>辞書マッチ</b> — 約100個の登録キーワードとパターン照合。<b>かな正規化</b>（ひらがな/カタカナ/原文の3形式で照合）により「すし」=「スシ」等の表記揺れを吸収</li>
         <li><b>形態素解析</b> — TinySegmenter でテキストを分割 → ストップワード（助詞・動詞・副詞等200語）除去 → 隣接する非ストップ語を結合して固有名詞を復元</li>
         <li><b>Overpass API 検索</b> — 辞書マッチ: OSMタグ検索 + サブタグ検索（cuisine等）+ ラベル名の全タグ横断検索（かなバリアント付き）を1クエリで実行。固有名詞: 全タグ横断検索 <code>[~"."~"keyword"]</code></li>
@@ -410,6 +425,49 @@
       </p>
     </div>
 
+    <!-- ========== 住所検出 ========== -->
+    <div class="guide-section">
+      <h2 style="border-left-color:#e91e63">住所検出・ジオコーディング</h2>
+      <p>通報者がチャットで<b>番地号付きの住所</b>を伝えた場合、自動で住所を検出して地図上に表示します。</p>
+
+      <h3 class="sub-heading">検出される住所パターン</h3>
+      <ul>
+        <li><code>○○市○○区○○町1-2-3</code>（ハイフン区切り）</li>
+        <li><code>○○市○○1丁目2番3号</code>（丁目番号表記）</li>
+        <li><code>○○市○○123番地4</code>（番地表記）</li>
+        <li>都道府県はあってもなくても可</li>
+        <li>全角数字（１２３）は自動で半角に変換</li>
+      </ul>
+
+      <h3 class="sub-heading">表示方法</h3>
+      <ul>
+        <li>Nominatim（OSMジオコーディングAPI）で住所を検索し、<b>最大3件の候補</b>を返します</li>
+        <li><b style="color:#e91e63">#1 候補</b>: マゼンタ色の大きな丸ピン + <b>範囲矩形</b>（マゼンタ破線）で表示。地図は自動でこの範囲にフィット</li>
+        <li><b style="color:#f48fb1">#2〜3 候補</b>: 小さいマゼンタ色のピンで表示</li>
+        <li>候補はランキングパネルの「住所候補」セクションに一覧表示。クリックでその位置に移動</li>
+      </ul>
+
+      <h3 class="sub-heading">住所 + 施設キーワードの同時処理</h3>
+      <p>住所と施設キーワードが同じメッセージに含まれる場合、<b>住所の検出とPOI検索を並行実行</b>します。</p>
+      <div class="example-box">
+        <span class="label">例: 「川崎市中原区小杉町1-2-3のセブンの前にいます」</span>
+        <span class="arrow">&rarr;</span> 住所「川崎市中原区小杉町1-2-3」を検出 → ジオコーディング → マゼンタマーカー+範囲表示<br>
+        <span class="arrow">&rarr;</span> 住所を除去した「のセブンの前にいます」で「セブン」を辞書マッチ → POI検索<br>
+        <span class="arrow">&rarr;</span> ランキングパネルに「住所候補」と「施設候補」の両方を表示
+      </div>
+      <div class="example-box">
+        <span class="label">例: 「渋谷区神南1-2-3にいます」（施設キーワードなし）</span>
+        <span class="arrow">&rarr;</span> 住所のみ検出 → ジオコーディング → マゼンタマーカー+範囲表示<br>
+        <span class="arrow">&rarr;</span> 施設キーワードがないためPOI検索はスキップ
+      </div>
+
+      <div class="highlight-box" style="border-color:#e91e63; background:#fce4ec">
+        <p><b>注意:</b> ジオコーディング精度はOSMデータの登録状況に依存します。
+        番地号レベルのデータが登録されていない地域では、町丁目レベルの位置が返る場合があります。
+        候補が複数返る場合は、ランキングパネルで正しい候補を選択してください。</p>
+      </div>
+    </div>
+
     <!-- ========== POIマーカー ========== -->
     <div class="guide-section">
       <h2>マーカーの見方</h2>
@@ -418,9 +476,11 @@
         <li><b style="color:#f39c12">黄色い円（破線）</b> — POI検索範囲（誤差 x 5）</li>
         <li><b style="color:#e67e22">番号付き丸ピン</b> — スコア上位の候補地点（#1=金, #2=銀, #3=銅, #4-5=青系）</li>
         <li><b style="color:#27ae60">緑の円（破線）</b> — 複数キーワードが近接する地点のハイライト</li>
+        <li><b style="color:#e91e63">マゼンタの丸ピン + 矩形</b> — 通報者が申告した住所のジオコーディング結果。#1候補は範囲矩形付き</li>
       </ul>
       <p>マーカーをクリックすると<b>スコア内訳</b>（距離/テキスト）、施設名、<b>OSMタグ情報</b>（amenity, shop, cuisine, 住所等）が表示されます。</p>
-      <p>地図左下の<b>候補地点パネル</b>で施設名をクリックすると、その地点に地図を移動できます。</p>
+      <p>地図左下の<b>候補地点パネル</b>で施設名をクリックすると、その地点に地図を移動できます。
+        住所候補とPOI施設候補はセクション分けされて表示されます。</p>
     </div>
 
     <!-- ========== 注意事項 ========== -->
