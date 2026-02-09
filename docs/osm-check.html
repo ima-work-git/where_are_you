@@ -109,66 +109,6 @@
       cursor: not-allowed;
     }
 
-    /* 結果グリッド */
-    .results-section {
-      margin-top: 8px;
-    }
-    .results-section h2 {
-      font-size: 16px;
-      color: #1a1a2e;
-      margin-bottom: 12px;
-    }
-    .cat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 10px;
-    }
-    .cat-card {
-      background: #fff;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 14px 16px;
-      transition: all 0.15s;
-    }
-    .cat-card.has-data {
-      border-color: #27ae60;
-      cursor: pointer;
-    }
-    .cat-card.has-data:hover {
-      background: #eafaf1;
-      box-shadow: 0 2px 8px rgba(39,174,96,0.2);
-    }
-    .cat-card.no-data {
-      border-color: #e0e0e0;
-      opacity: 0.5;
-      cursor: default;
-    }
-    .cat-card .cat-name {
-      font-size: 14px;
-      font-weight: 700;
-      color: #333;
-      margin-bottom: 4px;
-    }
-    .cat-card .cat-count {
-      font-size: 13px;
-      color: #888;
-    }
-    .cat-card.has-data .cat-count {
-      color: #27ae60;
-      font-weight: 600;
-    }
-    .cat-card .cat-icon {
-      float: right;
-      font-size: 18px;
-      margin-top: -2px;
-    }
-    .cat-card.initial {
-      border-color: #e0e0e0;
-      opacity: 0.6;
-      cursor: default;
-    }
-    .cat-card.initial .cat-count { color: #bbb; }
-
     /* ローディング */
     .loading-overlay {
       display: none;
@@ -232,10 +172,6 @@
       <button id="btn-check" disabled>確認</button>
     </div>
 
-    <div class="results-section" id="results-section">
-      <h2>カテゴリ別 登録状況</h2>
-      <div class="cat-grid" id="cat-grid"></div>
-    </div>
   </div>
 
   <div class="loading-overlay" id="loading">
@@ -291,7 +227,6 @@
     let selectedLng = null;
     let centerMarker = null;
     let radiusCircle = null;
-    let categoryResults = {};
     let poiLayerGroup = null;
 
     // ========== DOM ==========
@@ -299,7 +234,6 @@
     const radiusVal = document.getElementById('radius-val');
     const locText = document.getElementById('loc-text');
     const btnCheck = document.getElementById('btn-check');
-    const catGrid = document.getElementById('cat-grid');
     const loadingEl = document.getElementById('loading');
     const mapHint = document.getElementById('map-hint');
 
@@ -342,24 +276,9 @@
         fillOpacity: 0.08,
         dashArray: '6,4',
         weight: 2,
+        interactive: false,
       }).addTo(map);
     }
-
-    // ========== 初期カードの描画 ==========
-    function renderInitialGrid() {
-      catGrid.innerHTML = '';
-      for (const cat of CATEGORIES) {
-        const card = document.createElement('div');
-        card.className = 'cat-card initial';
-        card.id = `card-${cat.id}`;
-        card.innerHTML = `
-          <div class="cat-name">${esc(cat.name)}</div>
-          <div class="cat-count">未確認</div>
-        `;
-        catGrid.appendChild(card);
-      }
-    }
-    renderInitialGrid();
 
     // ========== 確認ボタン ==========
     btnCheck.addEventListener('click', async () => {
@@ -428,19 +347,12 @@
       if (poiLayerGroup) map.removeLayer(poiLayerGroup);
       poiLayerGroup = L.layerGroup().addTo(map);
 
-      categoryResults = {};
-      for (const cat of CATEGORIES) {
-        categoryResults[cat.id] = [];
-      }
-
       for (const poi of pois) {
         let matched = false;
         for (const cat of CATEGORIES) {
           if (cat.match(poi.tags)) {
             const dist = distanceMeters(selectedLat, selectedLng, poi.lat, poi.lng);
-            const enriched = { ...poi, distance: Math.round(dist), catId: cat.id, catName: cat.name };
-            categoryResults[cat.id].push(enriched);
-            addPoiMarker(enriched);
+            addPoiMarker({ ...poi, distance: Math.round(dist), catId: cat.id, catName: cat.name });
             matched = true;
             break;
           }
@@ -449,25 +361,6 @@
         if (!matched && poi.lat && poi.lng) {
           const dist = distanceMeters(selectedLat, selectedLng, poi.lat, poi.lng);
           addPoiMarker({ ...poi, distance: Math.round(dist), catId: null, catName: '未分類' });
-        }
-      }
-
-      // カード更新
-      for (const cat of CATEGORIES) {
-        const card = document.getElementById(`card-${cat.id}`);
-        const items = categoryResults[cat.id];
-        const count = items.length;
-
-        card.className = count > 0 ? 'cat-card has-data' : 'cat-card no-data';
-        card.innerHTML = `
-          <span class="cat-icon">${count > 0 ? '&#9679;' : '&#9675;'}</span>
-          <div class="cat-name">${esc(cat.name)}</div>
-          <div class="cat-count">${count > 0 ? count + ' 件' : '登録なし'}</div>
-        `;
-
-        card.onclick = null;
-        if (count > 0) {
-          card.onclick = () => zoomToCategory(cat.id);
         }
       }
     }
@@ -481,6 +374,7 @@
         fillOpacity: 0.85,
         color: '#fff',
         weight: 2,
+        bubblingMouseEvents: false,
       });
 
       cm.bindPopup(() => buildTagPopup(poi), { maxWidth: 360, maxHeight: 350 });
@@ -506,19 +400,6 @@
           ? `<table>${rows}</table>`
           : '<div style="color:#888;font-size:12px;margin-top:6px">タグ情報なし</div>'}
       </div>`;
-    }
-
-    // ========== カテゴリカード → 地図ズーム ==========
-    function zoomToCategory(catId) {
-      const items = categoryResults[catId];
-      if (!items || items.length === 0) return;
-
-      if (items.length === 1) {
-        map.setView([items[0].lat, items[0].lng], 17);
-      } else {
-        const bounds = L.latLngBounds(items.map(p => [p.lat, p.lng]));
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
-      }
     }
 
     // ========== ユーティリティ ==========
