@@ -123,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // POIマーカークリア
   btnClearPoi.addEventListener('click', () => {
     MapModule.clearPOIResults();
+    MapModule.clearAddressMarker();
     clearRankingPanel();
     appendSystemMessage('POIマーカーをクリアしました');
   });
@@ -222,6 +223,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // 前回の検索結果をクリアしてから新しい結果を表示
     MapModule.clearPOIResults();
     clearRankingPanel();
+
+    // --- 住所検出処理 ---
+    if (result.addressQuery) {
+      MapModule.clearAddressMarker();
+      if (result.addressResult) {
+        const addr = result.addressResult;
+        MapModule.showAddressMarker(addr.lat, addr.lng, addr.address, addr.displayName);
+        appendSystemMessage(`[住所検出] "${addr.address}" → 地図上に表示しました`);
+        MapModule.getMap().setView([addr.lat, addr.lng], 17);
+      } else {
+        appendSystemMessage(`[住所検出] "${result.addressQuery}" → 位置を特定できませんでした`);
+      }
+    }
+
+    // --- POI検索結果処理（キーワードがある場合のみ）---
+    if (result.keywords.length === 0) return;
 
     const r = Math.round(result.radius);
     appendSystemMessage(

@@ -8,6 +8,7 @@ const MapModule = (() => {
   let accuracyCircle = null;
   let searchCircle = null;
   let poiLayerGroup = null;
+  let addressLayerGroup = null;
 
   const DEFAULT_CENTER = [36.0, 137.0];
   const DEFAULT_ZOOM = 5;
@@ -30,6 +31,7 @@ const MapModule = (() => {
     }).addTo(map);
 
     poiLayerGroup = L.layerGroup().addTo(map);
+    addressLayerGroup = L.layerGroup().addTo(map);
 
     return map;
   }
@@ -213,6 +215,42 @@ const MapModule = (() => {
     return d.innerHTML;
   }
 
+  /**
+   * 通報者申告住所のマーカーを表示（POIとは別レイヤー）
+   */
+  function showAddressMarker(lat, lng, address, displayName) {
+    clearAddressMarker();
+
+    const marker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: 'address-marker',
+        html: '<div class="address-pin">住所</div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      }),
+      zIndexOffset: 500,
+    });
+
+    marker.bindPopup(
+      '<strong style="color:#e91e63">[通報者申告住所]</strong><br>' +
+      '<strong>' + escapePopup(address) + '</strong><br>' +
+      '<span style="font-size:11px;color:#666">' + escapePopup(displayName) + '</span>'
+    );
+
+    marker.bindTooltip(address, {
+      permanent: true,
+      direction: 'top',
+      offset: [0, -22],
+      className: 'address-tooltip',
+    });
+
+    addressLayerGroup.addLayer(marker);
+  }
+
+  function clearAddressMarker() {
+    if (addressLayerGroup) addressLayerGroup.clearLayers();
+  }
+
   function getMap() {
     return map;
   }
@@ -225,5 +263,6 @@ const MapModule = (() => {
     init, updateCallerLocation, getMap, invalidateSize,
     showSearchRadius, showPOIResults, clearPOIResults,
     showIntersectionCluster,
+    showAddressMarker, clearAddressMarker,
   };
 })();

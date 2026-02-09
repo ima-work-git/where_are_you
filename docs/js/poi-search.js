@@ -172,6 +172,77 @@ const POISearch = (() => {
     return [...set];
   }
 
+  // ========== 全角→半角正規化 ==========
+  /** 全角数字→半角、全角ダッシュ→半角ハイフン */
+  function normalizeFullWidth(str) {
+    return str
+      .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+      .replace(/[ー−]/g, '-');
+  }
+
+  // ========== 住所検出 ==========
+  // 日本の住所パターン: (都道府県)?(市区)(町村)?(町名)(番地)
+  const _C = '[\\u4E00-\\u9FFF\\u3041-\\u3096\\u30A1-\\u30F6]';
+  const JAPANESE_ADDRESS_RE = new RegExp(
+    '(' +
+      '(?:' + _C + '{1,4}[都道府県])?' +
+      _C + '{1,6}[市区]' +
+      '(?:' + _C + '{1,6}[区町村])?' +
+      '[\\u4E00-\\u9FFF\\u3041-\\u3096\\u30A1-\\u30F6の]{0,10}?' +
+      '(?:' +
+        '\\d{1,4}丁目(?:\\d{1,4}番(?:\\d{1,4}号)?)?' +
+        '|' +
+        '\\d{1,4}番地\\d{0,4}' +
+        '|' +
+        '\\d{1,4}[\\-ー−]\\d{1,4}(?:[\\-ー−]\\d{1,4})?' +
+        '(?![階日月回個人台件棟室歳才分秒時])' +
+      ')' +
+    ')'
+  );
+
+  /**
+   * テキストから日本の住所パターンを検出
+   * @returns {string|null} 検出された住所文字列、なければnull
+   */
+  function detectAddress(text) {
+    const normalized = normalizeFullWidth(text);
+    const match = normalized.match(JAPANESE_ADDRESS_RE);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * 住所ジオコーディング（viewbox制約なし）
+   * 通報者が直接申告した住所なのでGPS範囲に縛らない
+   */
+  async function geocodeAddress(addressText) {
+    const params = new URLSearchParams({
+      q: addressText,
+      format: 'json',
+      limit: '3',
+      countrycodes: 'jp',
+      'accept-language': 'ja',
+      addressdetails: '1',
+    });
+
+    try {
+      const res = await fetch(`${NOMINATIM_ENDPOINT}?${params}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.length === 0) return null;
+
+      const best = data[0];
+      return {
+        lat: parseFloat(best.lat),
+        lng: parseFloat(best.lon),
+        address: addressText,
+        displayName: best.display_name,
+      };
+    } catch (e) {
+      console.error('住所ジオコーディングエラー:', e);
+      return null;
+    }
+  }
+
   function extractKeywords(text) {
     const cleaned = text
       .replace(FILLER_RE, '')
@@ -629,14 +700,26 @@ const POISearch = (() => {
   async function analyzeMessage(text, callerLocation) {
     if (!callerLocation) return null;
 
-    const keywords = extractKeywords(text);
+    // Step 1: 住所検出（POI検索とは別枠で処理）
+    const addressQuery = detectAddress(text);
+    let cleanedText = text;
+    if (addressQuery) {
+      // 住所部分をテキストから除去してキーワード抽出への干渉を防ぐ
+      cleanedText = text.replace(addressQuery, '').trim();
+    }
+
+    // Step 2: キーワード抽出（住所除去後のテキストから）
+    const keywords = extractKeywords(cleanedText);
     const radius = callerLocation.accuracy * 5;
+    const properNouns = extractProperNouns(cleanedText);
 
-    // 辞書マッチ + 固有名詞フォールバック
-    const properNouns = extractProperNouns(text);
+    // 何も見つからなければスキップ（ただし住所があれば結果を返す）
+    if (keywords.length === 0 && properNouns.length === 0 && !addressQuery) return null;
 
-    // どちらもなければスキップ
-    if (keywords.length === 0 && properNouns.length === 0) return null;
+    // Step 3: 住所ジオコーディングとPOI検索を並行実行
+    const addressPromise = addressQuery
+      ? geocodeAddress(addressQuery)
+      : Promise.resolve(null);
 
     const allLabels = [];
 
@@ -673,7 +756,11 @@ const POISearch = (() => {
       }
     });
 
-    const searchResults = await Promise.all([...dictSearches, ...nameSearches]);
+    const [addressResult, ...searchResults] = await Promise.all([
+      addressPromise,
+      ...dictSearches,
+      ...nameSearches,
+    ]);
 
     // 全結果をフラットにしてスコアリング
     const allResults = [];
@@ -711,12 +798,15 @@ const POISearch = (() => {
       totalCount: totalBeforeFilter,
       intersections,
       isMultiKeyword: effectiveResults.length >= 2,
+      addressResult,    // {lat, lng, address, displayName} or null
+      addressQuery,     // 検出された住所文字列 or null
     };
   }
 
   return {
     extractKeywords, extractProperNouns, searchByName, searchNearby,
     analyzeMessage, distanceMeters, calcDistanceScore, calcTextScore, scorePOI,
+    detectAddress, geocodeAddress,
     TOP_N,
   };
 })();
