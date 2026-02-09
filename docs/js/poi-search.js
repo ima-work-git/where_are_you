@@ -417,9 +417,9 @@ const POISearch = (() => {
 
   // ========== Overpass API クエリ ==========
   /**
-   * 辞書マッチ検索: タグ検索 + ラベル名のname検索を1クエリで実行
+   * 辞書マッチ検索: タグ検索 + ラベル名の全タグ横断検索を1クエリで実行
    * 例: "寿司屋" → [amenity=restaurant][name~"寿司"] に加え、
-   *     ["name"~"寿司屋|すしや|スシヤ"] でタグ不備のエントリも拾う
+   *     [~"."~"寿司屋|すしや|スシヤ"] で name/brand/alt_name 等全タグを対象に検索
    */
   async function searchNearby(lat, lng, radiusMeters, keyword) {
     // label名のかなバリアントでname横断検索も追加
@@ -432,8 +432,8 @@ const POISearch = (() => {
         node${keyword.tags}(around:${radiusMeters},${lat},${lng});
         way${keyword.tags}(around:${radiusMeters},${lat},${lng});
         relation${keyword.tags}(around:${radiusMeters},${lat},${lng});
-        node["name"~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
-        way["name"~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
+        node[~"."~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
+        way[~"."~"${nameRegex}",i](around:${radiusMeters},${lat},${lng});
       );
       out center body;
     `;

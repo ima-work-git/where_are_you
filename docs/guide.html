@@ -307,7 +307,7 @@
         <div class="fd-step">
           <span class="fd-box overpass">Overpass API</span>
           <span class="fd-arrow">&rarr;</span>
-          <span>辞書: タグ検索 + name検索 / 固有名詞: 全タグ横断検索</span>
+          <span>辞書・固有名詞とも全タグ横断検索</span>
         </div>
         <div class="fd-step">
           <span class="fd-box nominatim">Nominatim</span>
@@ -328,7 +328,7 @@
         <li><b>テキスト前処理</b> — フィラー除去（「えーっと」「あのー」等）、句読点・空白の正規化</li>
         <li><b>辞書マッチ</b> — 約100個の登録キーワードとパターン照合。<b>かな正規化</b>（ひらがな/カタカナ/原文の3形式で照合）により「すし」=「スシ」等の表記揺れを吸収</li>
         <li><b>形態素解析</b> — TinySegmenter でテキストを分割 → ストップワード（助詞・動詞・副詞等200語）除去 → 隣接する非ストップ語を結合して固有名詞を復元</li>
-        <li><b>Overpass API 検索</b> — 辞書マッチ: OSMタグ検索 + ラベル名のname検索（かなバリアント付き）を1クエリで実行。固有名詞: 全タグ横断検索 <code>[~"."~"keyword"]</code></li>
+        <li><b>Overpass API 検索</b> — 辞書マッチ: OSMタグ検索 + ラベル名の全タグ横断検索（かなバリアント付き）を1クエリで実行。固有名詞: 全タグ横断検索 <code>[~"."~"keyword"]</code></li>
         <li><b>Nominatim 検索</b>（固有名詞のみ）— OSMのジオコーディングAPIで読み仮名から漢字地名を解決。Overpassと<b>並行実行</b>し、結果をマージ（50m以内の重複は除去）</li>
         <li><b>スコアリング &amp; ランキング</b> — 全候補に総合スコアを付け、降順ソートして<b>上位5件のみ</b>を地図とランキングパネルに表示</li>
       </ol>
@@ -343,13 +343,13 @@
       <p>Overpass APIに送るクエリは<b>2種類を1つのクエリ内で同時実行</b>します：</p>
       <ul>
         <li><b>タグ検索</b> — <code>[amenity=restaurant]["name"~"寿司"]</code> のようにOSMタグで絞り込み</li>
-        <li><b>name検索</b> — ラベル名（例:「寿司屋」）のかなバリアント <code>["name"~"寿司屋|すしや|スシヤ"]</code> でタグ不備のエントリも拾う</li>
+        <li><b>全タグ横断検索</b> — ラベル名（例:「寿司屋」）のかなバリアント <code>[~"."~"寿司屋|すしや|スシヤ"]</code> でname/brand/alt_name等すべてのタグを対象に検索</li>
       </ul>
       <div class="example-box">
         <span class="label">例: 「すし屋が見える」</span>
         辞書パターン <code>/寿司|すし|鮨/</code> にマッチ<br>
         <span class="arrow">&rarr;</span> Overpass: <code>[amenity~"restaurant|fast_food"]["name"~"寿司|すし|鮨|スシ|寿し"]</code><br>
-        <span class="arrow">&rarr;</span> 同時に: <code>["name"~"寿司屋|すしや|スシヤ"]</code> でもname検索
+        <span class="arrow">&rarr;</span> 同時に: <code>[~"."~"寿司屋|すしや|スシヤ"]</code> で全タグ横断検索
       </div>
 
       <h3 class="sub-heading">2. かな正規化（表記揺れ対策）</h3>
